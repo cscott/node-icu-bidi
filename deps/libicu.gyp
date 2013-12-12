@@ -115,11 +115,19 @@
       'direct_dependent_settings': {
         'include_dirs': [ '<(SHARED_INTERMEDIATE_DIR)/icu/source/common/' ],
       },
-      'sources': [
-            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicudata.a',
+      'link_settings': {
+        'libraries': [
             '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicui18n.a',
+            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicuuc.a',
+            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicudata.a',
             '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicutu.a',
-            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicuuc.a'
+        ]
+      },
+      'sources': [
+            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicui18n.a',
+            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicuuc.a',
+            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicudata.a',
+            '<(SHARED_INTERMEDIATE_DIR)/icu/source/lib/libicutu.a',
       ]
     }
   ]
