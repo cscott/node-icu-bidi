@@ -71,6 +71,7 @@
           'action': [
                 'python', './cdconfigure.py',
                 '<(SHARED_INTERMEDIATE_DIR)/icu/source/',
+                'CFLAGS=-fPIC', 'CXXFLAGS=-fPIC', # required on x64
                 '--enable-static', '--disable-shared',
                 # we can't use --disable-tools since the build process
                 # uses bin/icupkg internally
