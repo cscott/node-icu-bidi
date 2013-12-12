@@ -2,6 +2,7 @@ var http = require('http');
 var url = require('url');
 
 function download(from,options,callback) {
+    return callback(new Error('Binary download disabled'));// XXX
     options = options || {};
     var uri = url.parse(from);
     var req = http.request(uri);
