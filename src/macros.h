@@ -36,6 +36,21 @@
     }                                                                          \
     String::Utf8Value var(args[i]->ToString());
 
+#define REQUIRE_ARGUMENT_NUMBER(i)                                      \
+    if (args.Length() <= (i) || !args[i]->IsNumber()) {                 \
+        return ThrowException(Exception::TypeError(                     \
+            String::New("Argument " #i " must be a number")             \
+        ));                                                             \
+    }
+
+#define REQUIRE_ARGUMENT_INTEGER(i, var)                                       \
+    if (args.Length() <= (i) || !(args[i]->IsInt32() || args[i]->IsUint32())) {\
+        return ThrowException(Exception::TypeError(                            \
+            String::New("Argument " #i " must be an integer"))                 \
+        );                                                                     \
+    }                                                                          \
+    int64_t var = args[i]->IntegerValue();
+
 
 #define OPTIONAL_ARGUMENT_FUNCTION(i, var)                                     \
     Local<Function> var;                                                       \

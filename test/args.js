@@ -29,4 +29,18 @@ describe('Argument handling', function() {
             });
         }).should.throw();
     });
+    it('should not crash if the `this` pointer is bogus', function() {
+        (function() {
+            var p = new bidi.Paragraph('xyz');
+            var o = { f: p.countRuns };
+            o.f();
+        }).should.throw();
+    });
+    it('should allow subtyping', function() {
+        (function() {
+            var p = new bidi.Paragraph('xyz');
+            var pp = Object.create(p);
+            pp.countRuns();
+        }).should.not.throw();
+    });
 });
