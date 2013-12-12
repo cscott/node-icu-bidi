@@ -5,7 +5,7 @@
 #define REQUIRE_ARGUMENTS(n)                                                   \
     if (args.Length() < (n)) {                                                 \
         return ThrowException(                                                 \
-            Exception::TypeError(String::New("Expected " #n "arguments"))      \
+            Exception::TypeError(String::New("Expected " #n " arguments"))     \
         );                                                                     \
     }
 
