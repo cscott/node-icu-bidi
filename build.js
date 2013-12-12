@@ -25,6 +25,7 @@ var crypto = require('crypto');
 var opts = {
     name: 'icu_bidi',
     force: false,
+    rebuild: true,
     stage: false,
     configuration: 'Release',
     target_arch: process.arch,
@@ -75,6 +76,7 @@ function test(opts,try_build,callback) {
     cp.execFile(shell_cmd, args, function(err, stdout, stderr) {
         if (err || stderr) {
             var output = err.message || stderr;
+            log([shell_cmd].concat(args).join(' '));
             log('Testing the binary failed: "' + output + '"');
             if (try_build) {
                 log('Attempting source compile...');
@@ -92,7 +94,7 @@ function build(opts,callback) {
     if (opts.tool == 'node-gyp' && process.platform === 'win32') {
         shell_cmd = 'node-gyp.cmd';
     }
-    var shell_args = ['rebuild'].concat(opts.args);
+    var shell_args = [opts.rebuild ? 'rebuild' : 'build'].concat(opts.args);
     var cmd = cp.spawn(shell_cmd,shell_args, {cwd: undefined, env: process.env, customFds: [ 0, 1, 2]});
     cmd.on('error', function (err) {
         if (err) {

@@ -58,7 +58,7 @@
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/icu/source/configure'
           ],
-          'action': ['python','./extract.py','./icu4c-<@(libicu_version)-src.tgz','<(SHARED_INTERMEDIATE_DIR)']
+          'action': ['python','./extract.py','./icu4c-<@(libicu_version)-src.tgz','<(SHARED_INTERMEDIATE_DIR)', 'icu/source/configure']
         },
         {
           'action_name': 'configure_libicu',
