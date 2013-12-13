@@ -165,7 +165,9 @@ Handle<Value> Paragraph::New(const Arguments& args) {
   UBiDiLevel paraLevel =
     paraLevelObj->IsNumber() ? paraLevelObj->Int32Value() :
     UBIDI_DEFAULT_LTR;
-  if (!(paraLevel == UBIDI_DEFAULT_LTR || paraLevel == UBIDI_DEFAULT_RTL)) {
+  if (!(paraLevel <= UBIDI_MAX_EXPLICIT_LEVEL ||
+        paraLevel == UBIDI_DEFAULT_LTR ||
+        paraLevel == UBIDI_DEFAULT_RTL)) {
     paraLevel = UBIDI_DEFAULT_LTR;
   }
 

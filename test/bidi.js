@@ -122,6 +122,7 @@ describe('Bidi algorithm', function() {
         var e = 'English';
         var h = 'עִבְרִית';
         var p = ubidi.Paragraph('(' + e + ' ' + h + ')');
+        p.getDirection().should.equal('mixed');
         var l1 = p.setLine(0, e.length+2);
         var l2 = p.setLine(e.length+2, p.getLength());
         l1.getLength().should.equal(9);
