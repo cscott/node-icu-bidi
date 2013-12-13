@@ -7,7 +7,11 @@ describe('Bidi algorithm', function() {
         var p = bidi.Paragraph('The quick brown fox jumped');
         p.should.have.property('getParaLevel');
         p.getParaLevel().should.equal(0);
+        p.getLevelAt(0).should.equal(0);
         p.getDirection().should.equal('ltr');
+        p.getLength().should.equal(26);
+        p.getProcessedLength().should.equal(26);
+        p.countParagraphs().should.equal(1);
         p.countRuns().should.equal(1);
         var run = p.getVisualRun(0);
         run.should.have.property('dir');
@@ -21,7 +25,11 @@ describe('Bidi algorithm', function() {
         var p = bidi.Paragraph('עִבְרִית', {paraLevel: bidi.DEFAULT_RTL});
         p.should.have.property('getParaLevel');
         p.getParaLevel().should.equal(1);
+        p.getLevelAt(0).should.equal(1);
         p.getDirection().should.equal('rtl');
+        p.getLength().should.equal(8);
+        p.getProcessedLength().should.equal(8);
+        p.countParagraphs().should.equal(1);
         p.countRuns().should.equal(1);
         var run = p.getVisualRun(0);
         run.should.have.property('dir');
@@ -34,6 +42,7 @@ describe('Bidi algorithm', function() {
     it('should handle neutral text in LTR context', function() {
         var p = bidi.Paragraph(' ');
         p.getParaLevel().should.equal(0);
+        p.getLevelAt(0).should.equal(0);
         p.getDirection().should.equal('ltr');
         p.countRuns().should.equal(1);
         p.getVisualRun(0).should.eql({
@@ -45,6 +54,7 @@ describe('Bidi algorithm', function() {
     it('should handle neutral text in RTL context', function() {
         var p = bidi.Paragraph(' ', {paraLevel: bidi.DEFAULT_RTL});
         p.getParaLevel().should.equal(1);
+        p.getLevelAt(0).should.equal(1);
         p.getDirection().should.equal('rtl');
         p.countRuns().should.equal(1);
         p.getVisualRun(0).should.eql({
@@ -105,6 +115,32 @@ describe('Bidi algorithm', function() {
         run2.should.eql({
             dir: 'ltr',
             logicalStart: 17,
+            length: 1
+        });
+    });
+    it('should handle separate line contexts', function() {
+        var e = 'English';
+        var h = 'עִבְרִית';
+        var p = bidi.Paragraph('(' + e + ' ' + h + ')');
+        var l1 = p.setLine(0, e.length+2);
+        var l2 = p.setLine(e.length+2, p.getLength());
+        l1.getLength().should.equal(9);
+        l2.getLength().should.equal(9);
+        l1.countRuns().should.equal(1);
+        l1.getVisualRun(0).should.eql({
+            dir: 'ltr',
+            logicalStart: 0,
+            length: 9
+        });
+        l2.countRuns().should.equal(2);
+        l2.getVisualRun(0).should.eql({
+            dir: 'rtl',
+            logicalStart: 0,
+            length: 8
+        });
+        l2.getVisualRun(1).should.eql({
+            dir: 'ltr',
+            logicalStart: 8,
             length: 1
         });
     });

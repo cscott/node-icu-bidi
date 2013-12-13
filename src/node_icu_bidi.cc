@@ -47,13 +47,17 @@ protected:
   Paragraph() : node::ObjectWrap(),
                 para(NULL),
                 runs(-1),
-                errorCode(U_ZERO_ERROR) {
+                errorCode(U_ZERO_ERROR),
+                parent(Persistent<Object>())  {
   }
   ~Paragraph() {
     if (para != NULL) {
       ubidi_close(para);
       para = NULL;
     }
+    // this is parent.Reset() in newer v8
+    parent.Dispose();
+    parent.Clear();
   }
 
   static Handle<Value> New(const Arguments& args);
@@ -61,14 +65,19 @@ protected:
   static Handle<Value> GetParaLevel(const Arguments &args);
   static Handle<Value> GetLevelAt(const Arguments &args);
   static Handle<Value> GetLength(const Arguments &args);
+  static Handle<Value> GetProcessedLength(const Arguments &args);
   static Handle<Value> CountParagraphs(const Arguments &args);
   static Handle<Value> CountRuns(const Arguments& args);
   static Handle<Value> GetVisualRun(const Arguments& args);
+  static Handle<Value> SetLine(const Arguments& args);
 
 protected:
   UBiDi *para;
   int32_t runs;
   UErrorCode errorCode;
+  // keep a pointer to the parent paragraph to ensure that lines are
+  // gc'ed/destroyed before the paragraph they belong to.
+  Persistent<Object> parent;
 };
 
 // implementation
@@ -91,8 +100,10 @@ void Paragraph::Init(Handle<Object> target) {
   bidi_SetPrototypeMethod(constructor_template, "getParaLevel", GetParaLevel);
   bidi_SetPrototypeMethod(constructor_template, "getLevelAt", GetLevelAt);
   bidi_SetPrototypeMethod(constructor_template, "getLength", GetLength);
-
+  bidi_SetPrototypeMethod(constructor_template, "getProcessedLength", GetProcessedLength);
   bidi_SetPrototypeMethod(constructor_template, "countParagraphs", CountParagraphs);
+
+  bidi_SetPrototypeMethod(constructor_template, "setLine", SetLine);
 
   target->Set(String::NewSymbol(CLASS_NAME),
               constructor_template->GetFunction());
@@ -110,6 +121,13 @@ Handle<Value> Paragraph::New(const Arguments& args) {
     return scope.Close(constructor_template->GetFunction()->NewInstance(argc, argv));
   }
   REQUIRE_ARGUMENTS(1);
+
+  if (args[0]->IsExternal()) {
+    // special back door used to create line objects.
+    Paragraph *line = (Paragraph *) Local<External>::Cast(args[0])->Value();
+    line->Wrap(args.This());
+    return scope.Close(args.This());
+  }
 
   String::Value text(args[0]);
   if (*text == NULL) {
@@ -188,6 +206,44 @@ Handle<Value> Paragraph::New(const Arguments& args) {
   return scope.Close(args.This());
 }
 
+Handle<Value> Paragraph::SetLine(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  if (!para->parent.IsEmpty()) {
+    return ThrowException(Exception::TypeError(String::New(
+      "This is already a line"
+    )));
+  }
+  REQUIRE_ARGUMENT_NUMBER(0);
+  REQUIRE_ARGUMENT_NUMBER(1);
+  int32_t start = args[0]->Int32Value();
+  int32_t limit = args[1]->Int32Value();
+
+  // Create para object.
+  Paragraph *line = new Paragraph();
+  line->para = ubidi_openSized(ubidi_getLength(para->para), 0, &line->errorCode);
+  if (U_FAILURE(line->errorCode) || line->para==NULL) {
+    delete line;
+    return ThrowException(Exception::Error(String::New("libicu open failed")));
+  }
+
+  ubidi_setLine(para->para, start, limit, line->para, &line->errorCode);
+  if (U_FAILURE(line->errorCode)) {
+    delete line;
+    return ThrowException(Exception::Error(String::New("setLine failed")));
+  }
+
+  // okay, now create a js object wrapping this Paragraph
+  // indicate to the constructor that we just want to wrap this object
+  // by passing it as an External
+  Local<Value> consArgs[1] = { External::New(line) };
+  Local<Object> lineObj = constructor_template->GetFunction()->NewInstance(
+    1, consArgs
+  );
+  line->parent = Persistent<Object>(args.Holder());
+  return scope.Close(lineObj);
+}
+
 Handle<Value> Paragraph::GetParaLevel(const Arguments& args) {
   HandleScope scope;
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
@@ -219,6 +275,12 @@ Handle<Value> Paragraph::GetLength(const Arguments& args) {
   HandleScope scope;
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   return scope.Close(Integer::New(ubidi_getLength(para->para)));
+}
+
+Handle<Value> Paragraph::GetProcessedLength(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  return scope.Close(Integer::New(ubidi_getProcessedLength(para->para)));
 }
 
 Handle<Value> Paragraph::CountRuns(const Arguments& args) {
