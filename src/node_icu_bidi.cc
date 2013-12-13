@@ -59,6 +59,9 @@ protected:
   static Handle<Value> New(const Arguments& args);
   static Handle<Value> GetDirection(const Arguments &args);
   static Handle<Value> GetParaLevel(const Arguments &args);
+  static Handle<Value> GetLevelAt(const Arguments &args);
+  static Handle<Value> GetLength(const Arguments &args);
+  static Handle<Value> CountParagraphs(const Arguments &args);
   static Handle<Value> CountRuns(const Arguments& args);
   static Handle<Value> GetVisualRun(const Arguments& args);
 
@@ -86,6 +89,10 @@ void Paragraph::Init(Handle<Object> target) {
 
   bidi_SetPrototypeMethod(constructor_template, "getDirection", GetDirection);
   bidi_SetPrototypeMethod(constructor_template, "getParaLevel", GetParaLevel);
+  bidi_SetPrototypeMethod(constructor_template, "getLevelAt", GetLevelAt);
+  bidi_SetPrototypeMethod(constructor_template, "getLength", GetLength);
+
+  bidi_SetPrototypeMethod(constructor_template, "countParagraphs", CountParagraphs);
 
   target->Set(String::NewSymbol(CLASS_NAME),
               constructor_template->GetFunction());
@@ -135,11 +142,31 @@ Handle<Value> Paragraph::GetParaLevel(const Arguments& args) {
   return scope.Close(Integer::New(ubidi_getParaLevel(para->para)));
 }
 
+Handle<Value> Paragraph::GetLevelAt(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  REQUIRE_ARGUMENT_NUMBER(0);
+  int32_t charIndex = args[0]->Int32Value();
+  return scope.Close(Integer::New(ubidi_getLevelAt(para->para, charIndex)));
+}
+
+Handle<Value> Paragraph::CountParagraphs(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  return scope.Close(Integer::New(ubidi_countParagraphs(para->para)));
+}
+
 Handle<Value> Paragraph::GetDirection(const Arguments& args) {
   HandleScope scope;
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   UBiDiDirection dir = ubidi_getDirection(para->para);
   return scope.Close(dir2str(dir));
+}
+
+Handle<Value> Paragraph::GetLength(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  return scope.Close(Integer::New(ubidi_getLength(para->para)));
 }
 
 Handle<Value> Paragraph::CountRuns(const Arguments& args) {
