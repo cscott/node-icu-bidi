@@ -8,7 +8,58 @@ provide an implementation of the Unicode [BiDi] algorithm.
 
 # USAGE
 
-**To be written**
+The JavaScript API follows the
+[API of `icu4c`](http://icu-project.org/apiref/icu4c/ubidi_8h.html)
+fairly closely.
+
+```js
+var ubidi = require('icu-bidi');
+
+var e = 'English';
+var h = 'עִבְרִית';
+var input = e + ' ' + h;
+
+console.log( input );
+var p = ubidi.Paragraph(input, {
+  // this hash is optional; these are the default values:
+  paraLevel:         ubidi.DEFAULT_LTR,
+  reorderingMode:    ubidi.ReorderingMode.DEFAULT,
+  reorderingOptions: 0,
+  inverse:           false,
+  prologue:          '',
+  epilogue:          '',
+  embeddingLevels:   null /* Unimplemented */
+});
+console.log( 'number of paragraphs', p.countParagraphs() );
+console.log( 'paragraph level',      p.getParaLevel()    );
+// direction is 'ltr', 'rtl', or 'mixed'
+console.log( 'direction',            p.getDirection()    );
+
+var i, levels = [];
+for (i=0; i < p.getProcessedLength(); i++) {
+  levels.push( p.getLevelAt(i) );
+}
+console.log( levels.join(' ') );
+
+for (i=0; i < p.countRuns(); i++) {
+  var run = p.getVisualRun(i);
+  console.log( 'run', run.dir, 'from', run.logicalStart, 'len', run.length );
+}
+
+console.log( p.writeReordered(ubidi.Reordered.DO_MIRRORING) );
+```
+
+This example prints the following when run:
+```
+English עִבְרִית
+number of paragraphs 1
+paragraph level 0
+direction mixed
+0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1
+run ltr from 0 len 8
+run rtl from 8 len 8
+English תיִרְבִע
+```
 
 # INSTALLING
 
