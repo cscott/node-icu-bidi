@@ -145,4 +145,33 @@ describe('Bidi algorithm', function() {
             length: 1
         });
     });
+    it('should handle prologue contexts', function() {
+        var h = 'עִבְרִית';
+        var p1 = new ubidi.Paragraph('.-=', {
+            paraLevel: ubidi.DEFAULT_LTR
+        });
+        p1.getDirection().should.equal('ltr');
+        var p2 = new ubidi.Paragraph('.-=', {
+            paraLevel: ubidi.DEFAULT_LTR,
+            prologue: h
+        });
+        p2.getDirection().should.equal('rtl');
+    });
+    it('should handle epilogue contexts', function() {
+        var h    = 'עִבְרִית';
+        var hrev = 'תיִרְבִע';
+        var p1 = new ubidi.Paragraph('.-='+h+'-+*', {
+            paraLevel: ubidi.LTR
+        });
+        p1.getDirection().should.equal('mixed');
+        p1.writeReordered(ubidi.Reordered.DO_MIRRORING).
+            should.equal('.-='+hrev+'-+*');
+        var p2 = new ubidi.Paragraph('.-='+h+'-+*', {
+            paraLevel: ubidi.LTR,
+            epilogue: ' \u0634'
+        });
+        p2.getDirection().should.equal('mixed');
+        p2.writeReordered(ubidi.Reordered.DO_MIRRORING).
+            should.equal('.-=*+-'+hrev);
+    });
 });

@@ -1,5 +1,6 @@
 #include <node.h>
 #include <v8.h>
+#include <cstring> // for std::memcpy
 
 #include "unicode/ubidi.h"
 
@@ -46,6 +47,7 @@ public:
 protected:
   Paragraph() : node::ObjectWrap(),
                 para(NULL),
+                text(NULL),
                 runs(-1),
                 errorCode(U_ZERO_ERROR),
                 parent(Persistent<Object>())  {
@@ -54,6 +56,10 @@ protected:
     if (para != NULL) {
       ubidi_close(para);
       para = NULL;
+    }
+    if (text != NULL) {
+      delete text;
+      text = NULL;
     }
     // this is parent.Reset() in newer v8
     parent.Dispose();
@@ -70,9 +76,11 @@ protected:
   static Handle<Value> CountRuns(const Arguments& args);
   static Handle<Value> GetVisualRun(const Arguments& args);
   static Handle<Value> SetLine(const Arguments& args);
+  static Handle<Value> WriteReordered(const Arguments& args);
 
 protected:
   UBiDi *para;
+  UChar *text;
   int32_t runs;
   UErrorCode errorCode;
   // keep a pointer to the parent paragraph to ensure that lines are
@@ -104,6 +112,8 @@ void Paragraph::Init(Handle<Object> target) {
   bidi_SetPrototypeMethod(constructor_template, "countParagraphs", CountParagraphs);
 
   bidi_SetPrototypeMethod(constructor_template, "setLine", SetLine);
+
+  bidi_SetPrototypeMethod(constructor_template, "writeReordered", WriteReordered);
 
   target->Set(String::NewSymbol(CLASS_NAME),
               constructor_template->GetFunction());
@@ -198,10 +208,34 @@ Handle<Value> Paragraph::New(const Arguments& args) {
     ubidi_setInverse(para->para, inverseObj->BooleanValue());
   }
 
+  Handle<Value> prologueObj =
+    options->Get(String::NewSymbol("prologue"));
+  Handle<Value> epilogueObj =
+    options->Get(String::NewSymbol("epilogue"));
+  String::Value prologue(prologueObj);
+  String::Value epilogue(epilogueObj);
+  int32_t plen = prologueObj->IsString() ? prologue.length() : 0;
+  int32_t elen = epilogueObj->IsString() ? epilogue.length() : 0;
+
+  // Copy main, prologue, and epilogue text and keep it alive as long
+  // as we're alive.
+  para->text = new UChar[plen + text.length() + elen];
+  std::memcpy(para->text, *prologue, plen * sizeof(UChar));
+  std::memcpy(para->text + plen, *text, text.length() * sizeof(UChar));
+  std::memcpy(para->text + plen + text.length(), *epilogue, elen * sizeof(UChar));
+  if (plen!=0 || elen!=0) {
+    ubidi_setContext(
+      para->para, para->text, plen,
+      para->text + plen + text.length(), elen,
+      &para->errorCode
+    );
+    CHECK_UBIDI_ERR(para);
+  }
+
   // XXX parse options.embeddingLevels and construct an appropriate array of
   //     UBiDiLevel to pass to setPara
 
-  ubidi_setPara(para->para, *text, text.length(),
+  ubidi_setPara(para->para, para->text + plen, text.length(),
                 paraLevel, NULL, &para->errorCode);
   CHECK_UBIDI_ERR(para);
 
@@ -319,6 +353,36 @@ Handle<Value> Paragraph::GetVisualRun(const Arguments& args) {
   return scope.Close(result);
 }
 
+Handle<Value> Paragraph::WriteReordered(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  uint16_t options = 0;
+  if (args.Length() > 0) {
+    REQUIRE_ARGUMENT_NUMBER(0);
+    options = (uint16_t) args[0]->Uint32Value();
+  }
+  // Allocate a buffer to hold the result.
+  int32_t destSize = ubidi_getProcessedLength(para->para);
+  if (ubidi_getLength(para->para) > destSize) {
+    destSize = ubidi_getLength(para->para);
+  }
+  if (0 != (options & UBIDI_INSERT_LRM_FOR_NUMERIC)) {
+    destSize += 2 * ubidi_countRuns(para->para, &para->errorCode);
+    CHECK_UBIDI_ERR(para);
+  }
+  UChar dest[destSize];
+  int32_t resultSize = ubidi_writeReordered(
+    para->para, dest, destSize, options, &para->errorCode
+  );
+  CHECK_UBIDI_ERR(para);
+  if (resultSize > destSize) {
+    return ThrowException(Exception::Error(String::New(
+        "Allocation error (this should never happen)"
+    )));
+  }
+  return scope.Close(String::New(dest, resultSize));
+}
+
 
 // Tell node about our module!
 void RegisterModule(Handle<Object> exports) {
@@ -326,6 +390,8 @@ void RegisterModule(Handle<Object> exports) {
 
   Paragraph::Init(exports);
 
+  DEFINE_CONSTANT_INTEGER(exports, UBIDI_LTR, LTR);
+  DEFINE_CONSTANT_INTEGER(exports, UBIDI_RTL, RTL);
   DEFINE_CONSTANT_INTEGER(exports, UBIDI_DEFAULT_LTR, DEFAULT_LTR);
   DEFINE_CONSTANT_INTEGER(exports, UBIDI_DEFAULT_RTL, DEFAULT_RTL);
   DEFINE_CONSTANT_INTEGER(exports, UBIDI_MAX_EXPLICIT_LEVEL, MAX_EXPLICIT_LEVEL);
