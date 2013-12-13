@@ -3,8 +3,8 @@
 
 [![Build Status][1]][2] [![dependency status][3]][4] [![dev dependency status][5]][6]
 
-The node `icu-bidi` package binds to the [ICU] (52.1) library in order to
-provide an implementation of the Unicode [BiDi] algorithm.
+The node `icu-bidi` package binds to the [ICU][] (52.1) library in order to
+provide an implementation of the Unicode [BiDi][] algorithm.
 
 # USAGE
 
@@ -47,7 +47,7 @@ for (i=0; i < p.countRuns(); i++) {
   console.log( 'run', run.dir, 'from', run.logicalStart, 'len', run.length );
 }
 
-console.log( p.writeReordered(ubidi.Reordered.DO_MIRRORING) );
+console.log( p.writeReordered(ubidi.Reordered.KEEP_BASE_COMBINING) );
 ```
 
 This example prints the following when run:
@@ -59,7 +59,7 @@ direction mixed
 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1
 run ltr from 0 len 8
 run rtl from 8 len 8
-English ‭תיִרְבִע‬
+English ‭תירִבְעִ‬
 ```
 
 # API
@@ -156,8 +156,6 @@ After line-breaking, rules (L1) and (L2) for the treatment of trailing
 WS and for reordering are performed on the returned `Paragraph` object
 representing a line.
 
-See [the icu docs][ubidi_setLine] for more information.
-
 *   `start`:
     The line's first index into the text
 *   `limit`:
@@ -165,6 +163,8 @@ See [the icu docs][ubidi_setLine] for more information.
     index +1).  It must be `0<=start<limit<=containing paragraph limit`.
     If the specified line crosses a paragraph boundary, the function will
     throw an Exception.
+
+See [the icu docs][ubidi_setLine] for more information.
 
 ## Paragraph#getDirection()
 
@@ -424,9 +424,11 @@ Debian/Ubuntu. Make sure that you have at least `libicu` >= 52.1
 
 # RELATED PROJECTS
 
+* [ICU][]
 * [GNU FriBiDi](http://fribidi.org/)
 
 # LICENSE
+Copyright (c) 2013 C. Scott Ananian.
 
 `icu-bidi` is licensed using the same [ICU license] as the libicu library
 itself.  It is an MIT/X-style license.
