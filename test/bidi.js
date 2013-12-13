@@ -2,9 +2,9 @@
 require('should');
 
 describe('Bidi algorithm', function() {
-    var bidi = require('../');
+    var ubidi = require('../');
     it('should handle unidirectional LTR text', function() {
-        var p = bidi.Paragraph('The quick brown fox jumped');
+        var p = ubidi.Paragraph('The quick brown fox jumped');
         p.should.have.property('getParaLevel');
         p.getParaLevel().should.equal(0);
         p.getLevelAt(0).should.equal(0);
@@ -22,7 +22,7 @@ describe('Bidi algorithm', function() {
         run.length.should.equal(26);
     });
     it('should handle unidirectional RTL text', function() {
-        var p = bidi.Paragraph('עִבְרִית', {paraLevel: bidi.DEFAULT_RTL});
+        var p = ubidi.Paragraph('עִבְרִית', {paraLevel: ubidi.DEFAULT_RTL});
         p.should.have.property('getParaLevel');
         p.getParaLevel().should.equal(1);
         p.getLevelAt(0).should.equal(1);
@@ -40,7 +40,7 @@ describe('Bidi algorithm', function() {
         run.length.should.equal(8);
     });
     it('should handle neutral text in LTR context', function() {
-        var p = bidi.Paragraph(' ');
+        var p = ubidi.Paragraph(' ');
         p.getParaLevel().should.equal(0);
         p.getLevelAt(0).should.equal(0);
         p.getDirection().should.equal('ltr');
@@ -52,7 +52,7 @@ describe('Bidi algorithm', function() {
         });
     });
     it('should handle neutral text in RTL context', function() {
-        var p = bidi.Paragraph(' ', {paraLevel: bidi.DEFAULT_RTL});
+        var p = ubidi.Paragraph(' ', {paraLevel: ubidi.DEFAULT_RTL});
         p.getParaLevel().should.equal(1);
         p.getLevelAt(0).should.equal(1);
         p.getDirection().should.equal('rtl');
@@ -66,7 +66,7 @@ describe('Bidi algorithm', function() {
     it('should handle mixed LTR + RTL text in LTR context', function() {
         var e = 'English';
         var h = 'עִבְרִית';
-        var p = bidi.Paragraph('(' + e + ' ' + h + ')'); // ltr context
+        var p = ubidi.Paragraph('(' + e + ' ' + h + ')'); // ltr context
         p.should.have.property('getParaLevel');
         p.getParaLevel().should.equal(0);
         p.getDirection().should.equal('mixed');
@@ -93,8 +93,8 @@ describe('Bidi algorithm', function() {
     it('should handle mixed LTR + RTL text in RTL context', function() {
         var e = 'English';
         var h = 'עִבְרִית';
-        var p = bidi.Paragraph('(' + e + ' ' + h + ')',
-                               {paraLevel: bidi.DEFAULT_RTL}); // rtl context
+        var p = ubidi.Paragraph('(' + e + ' ' + h + ')',
+                               {paraLevel: ubidi.DEFAULT_RTL}); // rtl context
         p.should.have.property('getParaLevel');
         p.getParaLevel().should.equal(0);
         p.getDirection().should.equal('mixed');
@@ -121,7 +121,7 @@ describe('Bidi algorithm', function() {
     it('should handle separate line contexts', function() {
         var e = 'English';
         var h = 'עִבְרִית';
-        var p = bidi.Paragraph('(' + e + ' ' + h + ')');
+        var p = ubidi.Paragraph('(' + e + ' ' + h + ')');
         var l1 = p.setLine(0, e.length+2);
         var l2 = p.setLine(e.length+2, p.getLength());
         l1.getLength().should.equal(9);
