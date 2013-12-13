@@ -67,14 +67,24 @@ protected:
   }
 
   static Handle<Value> New(const Arguments& args);
+
   static Handle<Value> GetDirection(const Arguments &args);
   static Handle<Value> GetParaLevel(const Arguments &args);
   static Handle<Value> GetLevelAt(const Arguments &args);
   static Handle<Value> GetLength(const Arguments &args);
   static Handle<Value> GetProcessedLength(const Arguments &args);
+  static Handle<Value> GetResultLength(const Arguments &args);
+  static Handle<Value> GetVisualIndex(const Arguments &args);
+  static Handle<Value> GetLogicalIndex(const Arguments &args);
+
   static Handle<Value> CountParagraphs(const Arguments &args);
+  static Handle<Value> GetParagraph(const Arguments &args);
+  static Handle<Value> GetParagraphByIndex(const Arguments &args);
+
   static Handle<Value> CountRuns(const Arguments& args);
   static Handle<Value> GetVisualRun(const Arguments& args);
+  static Handle<Value> GetLogicalRun(const Arguments& args);
+
   static Handle<Value> SetLine(const Arguments& args);
   static Handle<Value> WriteReordered(const Arguments& args);
 
@@ -103,13 +113,21 @@ void Paragraph::Init(Handle<Object> target) {
 
   bidi_SetPrototypeMethod(constructor_template, "countRuns", CountRuns);
   bidi_SetPrototypeMethod(constructor_template, "getVisualRun", GetVisualRun);
+  bidi_SetPrototypeMethod(constructor_template, "getLogicalRun", GetLogicalRun);
 
   bidi_SetPrototypeMethod(constructor_template, "getDirection", GetDirection);
   bidi_SetPrototypeMethod(constructor_template, "getParaLevel", GetParaLevel);
   bidi_SetPrototypeMethod(constructor_template, "getLevelAt", GetLevelAt);
   bidi_SetPrototypeMethod(constructor_template, "getLength", GetLength);
   bidi_SetPrototypeMethod(constructor_template, "getProcessedLength", GetProcessedLength);
+  bidi_SetPrototypeMethod(constructor_template, "getResultLength", GetResultLength);
+
+  bidi_SetPrototypeMethod(constructor_template, "getVisualIndex", GetVisualIndex);
+  bidi_SetPrototypeMethod(constructor_template, "getLogicalIndex", GetLogicalIndex);
+
   bidi_SetPrototypeMethod(constructor_template, "countParagraphs", CountParagraphs);
+  bidi_SetPrototypeMethod(constructor_template, "getParagraph", GetParagraph);
+  bidi_SetPrototypeMethod(constructor_template, "getParagraphByIndex", GetParagraphByIndex);
 
   bidi_SetPrototypeMethod(constructor_template, "setLine", SetLine);
 
@@ -206,6 +224,12 @@ Handle<Value> Paragraph::New(const Arguments& args) {
     options->Get(String::NewSymbol("inverse"));
   if (inverseObj->IsBoolean()) {
     ubidi_setInverse(para->para, inverseObj->BooleanValue());
+  }
+
+  Handle<Value> reorderParagraphsLTRObj =
+    options->Get(String::NewSymbol("reorderParagraphsLTR"));
+  if (reorderParagraphsLTRObj->IsBoolean()) {
+    ubidi_orderParagraphsLTR(para->para, reorderParagraphsLTRObj->BooleanValue());
   }
 
   Handle<Value> prologueObj =
@@ -319,6 +343,34 @@ Handle<Value> Paragraph::GetProcessedLength(const Arguments& args) {
   return scope.Close(Integer::New(ubidi_getProcessedLength(para->para)));
 }
 
+Handle<Value> Paragraph::GetResultLength(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  return scope.Close(Integer::New(ubidi_getResultLength(para->para)));
+}
+
+Handle<Value> Paragraph::GetVisualIndex(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  REQUIRE_ARGUMENT_NUMBER(0);
+  int32_t logicalIndex = args[0]->Int32Value();
+  int32_t visualIndex =
+    ubidi_getVisualIndex(para->para, logicalIndex, &para->errorCode);
+  CHECK_UBIDI_ERR(para);
+  return scope.Close(Integer::New(visualIndex));
+}
+
+Handle<Value> Paragraph::GetLogicalIndex(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  REQUIRE_ARGUMENT_NUMBER(0);
+  int32_t visualIndex = args[0]->Int32Value();
+  int32_t logicalIndex =
+    ubidi_getLogicalIndex(para->para, visualIndex, &para->errorCode);
+  CHECK_UBIDI_ERR(para);
+  return scope.Close(Integer::New(logicalIndex));
+}
+
 Handle<Value> Paragraph::CountRuns(const Arguments& args) {
   HandleScope scope;
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
@@ -350,6 +402,63 @@ Handle<Value> Paragraph::GetVisualRun(const Arguments& args) {
   result->Set(String::NewSymbol("dir"), dir2str(dir));
   result->Set(String::NewSymbol("logicalStart"), Integer::New(logicalStart));
   result->Set(String::NewSymbol("length"), Integer::New(length));
+  return scope.Close(result);
+}
+
+Handle<Value> Paragraph::GetLogicalRun(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  if (para->runs < 0) {
+    para->runs = ubidi_countRuns(para->para, &para->errorCode);
+    CHECK_UBIDI_ERR(para);
+  }
+  REQUIRE_ARGUMENT_NUMBER(0);
+  int32_t logicalPosition = args[0]->Int32Value(), logicalLimit;
+  UBiDiLevel level;
+  ubidi_getLogicalRun(
+    para->para, logicalPosition, &logicalLimit, &level
+  );
+  Local<Object> result = Object::New();
+  result->Set(String::NewSymbol("logicalLimit"), Integer::New(logicalLimit));
+  result->Set(String::NewSymbol("level"), Integer::New(level));
+  return scope.Close(result);
+}
+
+Handle<Value> Paragraph::GetParagraph(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  REQUIRE_ARGUMENT_NUMBER(0);
+  int32_t charIndex = args[0]->Int32Value(), paraStart, paraLimit;
+  UBiDiLevel paraLevel;
+  int32_t paraIndex = ubidi_getParagraph(
+    para->para, charIndex, &paraStart, &paraLimit, &paraLevel, &para->errorCode
+  );
+  CHECK_UBIDI_ERR(para);
+
+  Local<Object> result = Object::New();
+  result->Set(String::NewSymbol("index"), Integer::New(paraIndex));
+  result->Set(String::NewSymbol("start"), Integer::New(paraStart));
+  result->Set(String::NewSymbol("limit"), Integer::New(paraLimit));
+  result->Set(String::NewSymbol("level"), Integer::New(paraLevel));
+  return scope.Close(result);
+}
+
+Handle<Value> Paragraph::GetParagraphByIndex(const Arguments& args) {
+  HandleScope scope;
+  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  REQUIRE_ARGUMENT_NUMBER(0);
+  int32_t paraIndex = args[0]->Int32Value(), paraStart, paraLimit;
+  UBiDiLevel paraLevel;
+  ubidi_getParagraphByIndex(
+    para->para, paraIndex, &paraStart, &paraLimit, &paraLevel, &para->errorCode
+  );
+  CHECK_UBIDI_ERR(para);
+
+  Local<Object> result = Object::New();
+  result->Set(String::NewSymbol("index"), Integer::New(paraIndex));
+  result->Set(String::NewSymbol("start"), Integer::New(paraStart));
+  result->Set(String::NewSymbol("limit"), Integer::New(paraLimit));
+  result->Set(String::NewSymbol("level"), Integer::New(paraLevel));
   return scope.Close(result);
 }
 

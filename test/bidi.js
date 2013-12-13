@@ -11,7 +11,20 @@ describe('Bidi algorithm', function() {
         p.getDirection().should.equal('ltr');
         p.getLength().should.equal(26);
         p.getProcessedLength().should.equal(26);
+        p.getResultLength().should.equal(26);
         p.countParagraphs().should.equal(1);
+        p.getParagraphByIndex(0).should.eql({
+            index: 0,
+            start: 0,
+            limit: 26,
+            level: 0
+        });
+        p.getParagraph(1).should.eql({
+            index: 0,
+            start: 0,
+            limit: 26,
+            level: 0
+        });
         p.countRuns().should.equal(1);
         var run = p.getVisualRun(0);
         run.should.have.property('dir');
@@ -20,6 +33,13 @@ describe('Bidi algorithm', function() {
         run.dir.should.equal('ltr');
         run.logicalStart.should.equal(0);
         run.length.should.equal(26);
+        var i;
+        for (i = 0; i < p.getLength(); i++) {
+            p.getLogicalIndex(p.getVisualIndex(i)).should.equal(i);
+            p.getVisualIndex(p.getLogicalIndex(i)).should.equal(i);
+        }
+        p.getVisualIndex(0).should.equal(0);
+        p.getLogicalIndex(0).should.equal(0);
     });
     it('should handle unidirectional RTL text', function() {
         var p = ubidi.Paragraph('עִבְרִית', {paraLevel: ubidi.DEFAULT_RTL});
@@ -29,7 +49,20 @@ describe('Bidi algorithm', function() {
         p.getDirection().should.equal('rtl');
         p.getLength().should.equal(8);
         p.getProcessedLength().should.equal(8);
+        p.getResultLength().should.equal(8);
         p.countParagraphs().should.equal(1);
+        p.getParagraphByIndex(0).should.eql({
+            index: 0,
+            start: 0,
+            limit: 8,
+            level: 1
+        });
+        p.getParagraph(1).should.eql({
+            index: 0,
+            start: 0,
+            limit: 8,
+            level: 1
+        });
         p.countRuns().should.equal(1);
         var run = p.getVisualRun(0);
         run.should.have.property('dir');
@@ -38,6 +71,13 @@ describe('Bidi algorithm', function() {
         run.dir.should.equal('rtl');
         run.logicalStart.should.equal(0);
         run.length.should.equal(8);
+        var i;
+        for (i = 0; i < p.getLength(); i++) {
+            p.getLogicalIndex(p.getVisualIndex(i)).should.equal(i);
+            p.getVisualIndex(p.getLogicalIndex(i)).should.equal(i);
+        }
+        p.getVisualIndex(0).should.equal(7);
+        p.getLogicalIndex(0).should.equal(7);
     });
     it('should handle neutral text in LTR context', function() {
         var p = ubidi.Paragraph(' ');
@@ -89,6 +129,16 @@ describe('Bidi algorithm', function() {
             logicalStart: 17,
             length: 1
         });
+        var run3 = p.getLogicalRun(1);
+        run3.should.eql({
+            logicalLimit: 9,
+            level: 0
+        });
+        var run4 = p.getLogicalRun(e.length + h.length);
+        run4.should.eql({
+            logicalLimit: 17,
+            level: 1
+        });
     });
     it('should handle mixed LTR + RTL text in RTL context', function() {
         var e = 'English';
@@ -116,6 +166,16 @@ describe('Bidi algorithm', function() {
             dir: 'ltr',
             logicalStart: 17,
             length: 1
+        });
+        var run3 = p.getLogicalRun(1);
+        run3.should.eql({
+            logicalLimit: 9,
+            level: 0
+        });
+        var run4 = p.getLogicalRun(e.length + h.length);
+        run4.should.eql({
+            logicalLimit: 17,
+            level: 1
         });
     });
     it('should handle separate line contexts', function() {
@@ -173,5 +233,27 @@ describe('Bidi algorithm', function() {
         p2.getDirection().should.equal('mixed');
         p2.writeReordered(ubidi.Reordered.DO_MIRRORING).
             should.equal('.-=*+-'+hrev);
+    });
+    it('should handle multiple paragraphs', function() {
+        var e = 'English';
+        var h = 'עִבְרִית';
+        var p = new ubidi.Paragraph(e + '\n' + h);
+        p.countParagraphs().should.equal(2);
+        var para1 = p.getParagraphByIndex(0);
+        var para2 = p.getParagraphByIndex(1);
+        para1.should.eql({
+            index: 0,
+            start: 0,
+            limit: 8,
+            level: 0 // ltr
+        });
+        para2.should.eql({
+            index: 1,
+            start: 8,
+            limit: 16,
+            level: 1 // rtl
+        });
+        p.getParagraph(3).should.eql(para1);
+        p.getParagraph(e.length + 4).should.eql(para2);
     });
 });
