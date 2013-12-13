@@ -16,7 +16,7 @@ fairly closely.
 var ubidi = require('icu-bidi');
 
 var e = 'English';
-var h = 'עִבְרִית';
+var h = '‭עִבְרִית‬';
 var input = e + ' ' + h;
 
 console.log( input );
@@ -51,14 +51,14 @@ console.log( p.writeReordered(ubidi.Reordered.DO_MIRRORING) );
 
 This example prints the following when run:
 ```
-English עִבְרִית
+English ‭עִבְרִית‬
 number of paragraphs 1
 paragraph level 0
 direction mixed
 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1
 run ltr from 0 len 8
 run rtl from 8 len 8
-English תיִרְבִע
+English ‭תיִרְבִע‬
 ```
 
 # INSTALLING
