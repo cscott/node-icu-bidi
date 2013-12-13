@@ -75,7 +75,7 @@
                 '--enable-static', '--disable-shared',
                 # we can't use --disable-tools since the build process
                 # uses bin/icupkg internally
-                '--disable-extra', '--disable-icuio',
+                '--disable-extras', '--disable-icuio',
                 '--disable-layout', '--disable-tests',
                 '--disable-samples', '<@(configure_options)',
                 '--with-data-packaging=static'
