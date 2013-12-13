@@ -118,22 +118,74 @@ Handle<Value> Paragraph::New(const Arguments& args) {
         "First argument couldn't be converted to a string"
     )));
   }
-  bool direction = (args.Length() <= 1) ? false : args[1]->BooleanValue();
+
+  // an optional options hash for the second argument.
+  Handle<Object> options;
+  if (args.Length() <= 1) {
+    options = Object::New();
+  } else {
+    options = args[1]->ToObject();
+    if (options.IsEmpty() || !args[1]->IsObject()) {
+      return ThrowException(Exception::TypeError(String::New(
+        "Second argument should be an options hash"
+      )));
+    }
+  }
 
   Paragraph *para = new Paragraph();
   para->Wrap(args.This());
 
   para->para = ubidi_openSized(text.length(), 0, &para->errorCode);
+  CHECK_UBIDI_ERR(para);
   if (para->para==NULL) {
     return ThrowException(Exception::Error(String::New("libicu open failed")));
   }
 
+  // parse values from the options hash
+  Handle<Value> paraLevelObj =
+    options->Get(String::NewSymbol("paraLevel"));
+  UBiDiLevel paraLevel =
+    paraLevelObj->IsNumber() ? paraLevelObj->Int32Value() :
+    UBIDI_DEFAULT_LTR;
+  if (!(paraLevel == UBIDI_DEFAULT_LTR || paraLevel == UBIDI_DEFAULT_RTL)) {
+    paraLevel = UBIDI_DEFAULT_LTR;
+  }
+
+  Handle<Value> reorderingModeObj =
+    options->Get(String::NewSymbol("reorderingMode"));
+  UBiDiReorderingMode reorderingMode =
+    reorderingModeObj->IsNumber() ?
+    (UBiDiReorderingMode) reorderingModeObj->Int32Value() :
+    UBIDI_REORDER_COUNT;
+  if (reorderingMode >= 0 && reorderingMode < UBIDI_REORDER_COUNT) {
+    ubidi_setReorderingMode(para->para, reorderingMode);
+  }
+
+  Handle<Value> reorderingOptionsObj =
+    options->Get(String::NewSymbol("reorderingOptions"));
+  int32_t reorderingOptions =
+    reorderingOptionsObj->IsNumber() ? reorderingOptionsObj->Int32Value() :
+    -1;
+  if (reorderingOptions >= 0 && reorderingOptions <=
+      (UBIDI_OPTION_INSERT_MARKS | UBIDI_OPTION_REMOVE_CONTROLS |
+       UBIDI_OPTION_STREAMING)) {
+    ubidi_setReorderingOptions(para->para, (uint32_t) reorderingOptions);
+  }
+
+  Handle<Value> inverseObj =
+    options->Get(String::NewSymbol("inverse"));
+  if (inverseObj->IsBoolean()) {
+    ubidi_setInverse(para->para, inverseObj->BooleanValue());
+  }
+
+  // XXX parse options.embeddingLevels and construct an appropriate array of
+  //     UBiDiLevel to pass to setPara
+
   ubidi_setPara(para->para, *text, text.length(),
-                direction ? UBIDI_DEFAULT_RTL : UBIDI_DEFAULT_LTR,
-                NULL, &para->errorCode);
+                paraLevel, NULL, &para->errorCode);
   CHECK_UBIDI_ERR(para);
 
-  return args.This();
+  return scope.Close(args.This());
 }
 
 Handle<Value> Paragraph::GetParaLevel(const Arguments& args) {
@@ -209,6 +261,44 @@ void RegisterModule(Handle<Object> exports) {
   HandleScope scope;
 
   Paragraph::Init(exports);
+
+  DEFINE_CONSTANT_INTEGER(exports, UBIDI_DEFAULT_LTR, DEFAULT_LTR);
+  DEFINE_CONSTANT_INTEGER(exports, UBIDI_DEFAULT_RTL, DEFAULT_RTL);
+  DEFINE_CONSTANT_INTEGER(exports, UBIDI_MAX_EXPLICIT_LEVEL, MAX_EXPLICIT_LEVEL);
+  DEFINE_CONSTANT_INTEGER(exports, UBIDI_LEVEL_OVERRIDE, LEVEL_OVERRIDE);
+  DEFINE_CONSTANT_INTEGER(exports, UBIDI_MAP_NOWHERE, MAP_NOWHERE);
+
+  // Reordered.<constant>: option bits for writeReordered
+  Handle<Object> re = Object::New();
+  exports->Set(String::NewSymbol("Reordered"), re,
+               static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+  DEFINE_CONSTANT_INTEGER(re, UBIDI_KEEP_BASE_COMBINING, KEEP_BASE_COMBINING);
+  DEFINE_CONSTANT_INTEGER(re, UBIDI_DO_MIRRORING, DO_MIRRORING);
+  DEFINE_CONSTANT_INTEGER(re, UBIDI_INSERT_LRM_FOR_NUMERIC, INSERT_LRM_FOR_NUMERIC);
+  DEFINE_CONSTANT_INTEGER(re, UBIDI_REMOVE_BIDI_CONTROLS, REMOVE_BIDI_CONTROLS);
+  DEFINE_CONSTANT_INTEGER(re, UBIDI_OUTPUT_REVERSE, OUTPUT_REVERSE);
+
+  // ReorderingMode.<constant>
+  Handle<Object> rm = Object::New();
+  exports->Set(String::NewSymbol("ReorderingMode"), rm,
+               static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+  DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_DEFAULT, DEFAULT);
+  DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_NUMBERS_SPECIAL, NUMBERS_SPECIAL);
+  DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_GROUP_NUMBERS_WITH_R, GROUP_NUMBERS_WITH_R);
+  DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_RUNS_ONLY, RUNS_ONLY);
+  DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_INVERSE_NUMBERS_AS_L, INVERSE_NUMBERS_AS_L);
+  DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_INVERSE_LIKE_DIRECT, INVERSE_LIKE_DIRECT);
+  DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL, INVERSE_FOR_NUMBERS_SPECIAL);
+  //DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_COUNT, COUNT); //number of enums
+
+  Handle<Object> ro = Object::New();
+  exports->Set(String::NewSymbol("ReorderingOption"), ro,
+               static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+  DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_DEFAULT, DEFAULT);
+  DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_INSERT_MARKS, INSERT_MARKS);
+  DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_REMOVE_CONTROLS, REMOVE_CONTROLS);
+  DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_STREAMING, STREAMING);
+
 }
 
 NODE_MODULE(icu_bidi, RegisterModule)
