@@ -435,7 +435,7 @@ Debian/Ubuntu. Make sure that you have at least `libicu` >= 52.1
 * [GNU FriBiDi](http://fribidi.org/)
 
 # LICENSE
-Copyright (c) 2013 C. Scott Ananian.
+Copyright (c) 2013-2014 C. Scott Ananian.
 
 `icu-bidi` is licensed using the same [ICU license] as the libicu library
 itself.  It is an MIT/X-style license.
