@@ -72,10 +72,10 @@ Returns a new `Paragraph` object with the results of the bidi algorithm.
 *   `options` *(optional)*: a hash containing various settings which can
     affect the bidi algorithm.  All are optional.
     - [`paraLevel`][ubidi_setPara]:
-        Specifies the default level for the text; it is typically 0 (LTR)
-        or 1 (RTL). If the function shall determine the paragraph level from
-        the text, then paraLevel can be set to either `ubidi.DEFAULT_LTR` or
-        `ubidi.DEFAULT_RTL`.
+        Specifies the default [level][UBiDiLevel] for the text; it is
+        typically 0 (LTR) or 1 (RTL). If the function shall determine
+        the paragraph level from the text, then paraLevel can be set
+        to either `ubidi.DEFAULT_LTR` or `ubidi.DEFAULT_RTL`.
     - [`reorderingMode`][ubidi_setReorderingMode]:
         Modify the operation of the Bidi algorithm such that it implements
         some variant to the basic Bidi algorithm or approximates an
@@ -202,10 +202,10 @@ See [the icu docs][ubidi_getResultLength] for more information.
 
 ## Paragraph#getParaLevel()
 
-Returns the paragraph level. If there are multiple paragraphs, their
-level may vary if the required `paraLevel` is `ubidi.DEFAULT_LTR` or
-`ubidi.DEFAULT_RTL`. In that case, the level of the first paragraph is
-returned.
+Returns the paragraph [level][UBiDiLevel]. If there are multiple
+paragraphs, their level may vary if the required `paraLevel` is
+`ubidi.DEFAULT_LTR` or `ubidi.DEFAULT_RTL`. In that case, the level of
+the first paragraph is returned.
 
 See [the icu docs][ubidi_getParaLevel] for more information.
 
@@ -228,7 +228,10 @@ Returns an object with the following properties:
 *   `limit`:
     The limit of the paragraph.
 *   `level`:
-    The level of the paragraph.
+    The [level][UBiDiLevel] of the paragraph.
+*   `dir`:
+    The directionality of the run, either `'ltr'` or `'rtl'`.  This is
+    derived from bit 0 of the level; see [UBiDiLevel][].
 
 See [the icu docs][ubidi_getParagraph] for more information.
 
@@ -242,7 +245,7 @@ See [the icu docs][ubidi_getParagraphByIndex] for more information.
 
 ## Paragraph#getLevelAt(charIndex)
 
-Return the level for the character at `charIndex`, or `0` if
+Return the [level][UBiDiLevel] for the character at `charIndex`, or `0` if
 `charIndex` is not in the valid range.
 
 See [the icu docs][ubidi_getLevelAt] for more information.
@@ -282,7 +285,10 @@ Returns an object with the following properties:
 *   `logicalLimit`:
     The limit of the corresponding run.
 *   `level`:
-    The level of the corresponding run.
+    The [level][UBiDiLevel] of the corresponding run.
+*   `dir`:
+    The directionality of the run, either `'ltr'` or `'rtl'`.  This is
+    derived from bit 0 of the level; see [UBiDiLevel][].
 
 See [the icu docs][ubidi_getLogicalRun] for more information.
 
@@ -367,6 +373,7 @@ See [the icu docs][ubidi_writeReordered] for more information.
 [UBIDI_INSERT_LRM_FOR_NUMERIC]: http://icu-project.org/apiref/icu4c/ubidi_8h.html#adad66f9132bc4e4621427091acfc0f40
 [UBIDI_REMOVE_BIDI_CONTROLS]: http://icu-project.org/apiref/icu4c/ubidi_8h.html#a039000c1e298cbad5909d07a55ca5312
 [UBIDI_OUTPUT_REVERSE]:       http://icu-project.org/apiref/icu4c/ubidi_8h.html#a4a10c3aac68ceca1569bac717156cef3
+[UBiDiLevel]:                 http://icu-project.org/apiref/icu4c/ubidi_8h.html#ab2460a19f323ab9787a79a95db91a606
 
 # INSTALLING
 

@@ -17,13 +17,15 @@ describe('Bidi algorithm', function() {
             index: 0,
             start: 0,
             limit: 26,
-            level: 0
+            level: 0,
+            dir: 'ltr'
         });
         p.getParagraph(1).should.eql({
             index: 0,
             start: 0,
             limit: 26,
-            level: 0
+            level: 0,
+            dir: 'ltr'
         });
         p.countRuns().should.equal(1);
         var run = p.getVisualRun(0);
@@ -55,13 +57,15 @@ describe('Bidi algorithm', function() {
             index: 0,
             start: 0,
             limit: 8,
-            level: 1
+            level: 1,
+            dir: 'rtl'
         });
         p.getParagraph(1).should.eql({
             index: 0,
             start: 0,
             limit: 8,
-            level: 1
+            level: 1,
+            dir: 'rtl'
         });
         p.countRuns().should.equal(1);
         var run = p.getVisualRun(0);
@@ -132,12 +136,14 @@ describe('Bidi algorithm', function() {
         var run3 = p.getLogicalRun(1);
         run3.should.eql({
             logicalLimit: 9,
-            level: 0
+            level: 0,
+            dir: 'ltr'
         });
         var run4 = p.getLogicalRun(e.length + h.length);
         run4.should.eql({
             logicalLimit: 17,
-            level: 1
+            level: 1,
+            dir: 'rtl'
         });
     });
     it('should handle mixed LTR + RTL text in RTL context', function() {
@@ -170,12 +176,14 @@ describe('Bidi algorithm', function() {
         var run3 = p.getLogicalRun(1);
         run3.should.eql({
             logicalLimit: 9,
-            level: 0
+            level: 0,
+            dir: 'ltr'
         });
         var run4 = p.getLogicalRun(e.length + h.length);
         run4.should.eql({
             logicalLimit: 17,
-            level: 1
+            level: 1,
+            dir: 'rtl'
         });
     });
     it('should handle separate line contexts', function() {
@@ -245,13 +253,15 @@ describe('Bidi algorithm', function() {
             index: 0,
             start: 0,
             limit: 8,
-            level: 0 // ltr
+            level: 0,
+            dir: 'ltr'
         });
         para2.should.eql({
             index: 1,
             start: 8,
             limit: 16,
-            level: 1 // rtl
+            level: 1,
+            dir: 'rtl'
         });
         p.getParagraph(3).should.eql(para1);
         p.getParagraph(e.length + 4).should.eql(para2);

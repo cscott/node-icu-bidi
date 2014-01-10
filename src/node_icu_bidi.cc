@@ -32,6 +32,10 @@ static Handle<Value> dir2str(UBiDiDirection dir) {
                      Undefined() /* should never happen */);
 }
 
+static UBiDiDirection level2dir(UBiDiLevel level) {
+    return (level&1) ? UBIDI_RTL : UBIDI_LTR;
+}
+
 #define CHECK_UBIDI_ERR(obj)                                        \
   do {                                                              \
     if (U_FAILURE((obj)->errorCode)) {                              \
@@ -421,6 +425,7 @@ Handle<Value> Paragraph::GetLogicalRun(const Arguments& args) {
   Local<Object> result = Object::New();
   result->Set(String::NewSymbol("logicalLimit"), Integer::New(logicalLimit));
   result->Set(String::NewSymbol("level"), Integer::New(level));
+  result->Set(String::NewSymbol("dir"), dir2str(level2dir(level)));
   return scope.Close(result);
 }
 
@@ -440,6 +445,7 @@ Handle<Value> Paragraph::GetParagraph(const Arguments& args) {
   result->Set(String::NewSymbol("start"), Integer::New(paraStart));
   result->Set(String::NewSymbol("limit"), Integer::New(paraLimit));
   result->Set(String::NewSymbol("level"), Integer::New(paraLevel));
+  result->Set(String::NewSymbol("dir"), dir2str(level2dir(paraLevel)));
   return scope.Close(result);
 }
 
@@ -459,6 +465,7 @@ Handle<Value> Paragraph::GetParagraphByIndex(const Arguments& args) {
   result->Set(String::NewSymbol("start"), Integer::New(paraStart));
   result->Set(String::NewSymbol("limit"), Integer::New(paraLimit));
   result->Set(String::NewSymbol("level"), Integer::New(paraLevel));
+  result->Set(String::NewSymbol("dir"), dir2str(level2dir(paraLevel)));
   return scope.Close(result);
 }
 
