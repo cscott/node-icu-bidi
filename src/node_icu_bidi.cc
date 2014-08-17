@@ -148,9 +148,11 @@ Handle<Value> Paragraph::New(const Arguments& args) {
   if (!args.IsConstructCall()) {
     // Invoked as plain function, turn into construct call
     const int argc = args.Length();
-    Local<Value> argv[argc];
+    Local<Value> *argv = new Local<Value>[argc];
     for (int i=0; i<argc; i++) { argv[i] = args[i]; }
-    return scope.Close(constructor_template->GetFunction()->NewInstance(argc, argv));
+    Handle<Value> result = scope.Close(constructor_template->GetFunction()->NewInstance(argc, argv));
+    delete[] argv;
+    return result;
   }
   REQUIRE_ARGUMENTS(1);
 

@@ -85,8 +85,6 @@
     },
     {
       'target_name': 'build',
-      'type': 'none',
-      'hard_dependency': 1,
       'dependencies': [
         'action_before_build'
       ],
@@ -109,7 +107,7 @@
     },
     {
       'target_name': 'libicu',
-      'type': 'static_library',
+      'type': 'none',
       'dependencies': [
         'build'
       ],
