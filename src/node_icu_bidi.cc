@@ -306,7 +306,7 @@ Handle<Value> Paragraph::SetLine(const Arguments& args) {
   Local<Object> lineObj = constructor_template->GetFunction()->NewInstance(
     1, consArgs
   );
-  line->parent = Persistent<Object>(args.Holder());
+  line->parent = Persistent<Object>::New(args.Holder());
   return scope.Close(lineObj);
 }
 
