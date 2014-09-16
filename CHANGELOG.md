@@ -1,4 +1,4 @@
-# node-icu-bidi x.x.x (not yet released)
+# node-icu-bidi 0.1.3 (2014-09-16)
 * Update to icu-bidi 53.1
 * Fix build issues on OS X
 * Use `node-pre-gyp` for build automation
