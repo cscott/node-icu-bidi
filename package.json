@@ -19,15 +19,23 @@
   "license": "ICU",
   "scripts": {
     "test": "mocha",
-    "install": "node build.js || nodejs build.js"
+    "install": "node-pre-gyp install --fallback-to-build",
+    "gh-publish": "scripts/publish.js",
+    "clean": "rm -rf node_modules lib/binding build"
   },
-  "dependencies": {
-    "mkdirp": "~0.3.5",
-    "tar.gz": "~0.1.1",
-    "should": "~2.1.1"
+  "binary": {
+    "module_name": "icu_bidi",
+    "module_path": "./lib/binding/{node_abi}-{platform}-{arch}",
+    "host": "https://github.com",
+    "remote_path": "/cscott/node-icu-bidi/releases/download/{version}/"
   },
+  "dependencies"  : {
+    "node-pre-gyp": "~0.5.25"
+  },
+  "bundledDependencies":["node-pre-gyp"],
   "devDependencies": {
-    "mocha": "~1.17.0"
+    "mocha": "~1.21.4",
+    "should": "~4.0.4"
   },
   "engines": {
     "node": ">= 0.8.0"

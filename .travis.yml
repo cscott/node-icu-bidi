@@ -1,4 +1,47 @@
-language: node_js
-node_js:
-  - "0.10"
-  - "0.8"
+# borrowed from node-sqlite3
+language: cpp
+
+## don't re-build for tags so that [publish binary] is not re-run
+## https://github.com/travis-ci/travis-ci/issues/1532
+#branches:
+#  except:
+#    - /^[0-9]+[.][0-9]+[.][0-9]+/
+
+env:
+  matrix:
+   - NODE_VERSION="0.8"
+   - NODE_VERSION="0.10"
+   - NODE_VERSION="0.11"
+  global:
+   - secure: "p/3rptxI8KJGhU1omrUu2WRClXhVwbRoWC3YfjaQr6rDMUMkmARc4tWT1UnL6e7bKAG2vKO9ko1d3meT6rHZL8ma/I5z9tvm3gefxLdIeV1I93JNX3nCLNkCDdIOcHEFibr1R8qsrcLqTaVoLMBhnNxFEvUFLbebD3ArFBy0zxY="
+
+matrix:
+  allow_failures:
+   # v8 API changed in 0.11, needs update
+   - env: NODE_VERSION="0.11"
+
+before_install:
+# check if tag exists and matches package.json
+- scripts/validate_tag.sh
+- echo $NODE_VERSION
+- git clone https://github.com/creationix/nvm.git ./.nvm
+- source ./.nvm/nvm.sh
+- nvm install $NODE_VERSION
+- nvm use $NODE_VERSION
+- npm update -g npm
+- npm config set spin=false
+- npm config set loglevel=http
+- node --version
+- npm --version
+
+install:
+# put node-pre-gyp on path
+- export PATH=./node_modules/.bin/:$PATH
+
+script:
+- node --version
+- npm --version
+- npm install --build-from-source
+- node-pre-gyp package testpackage
+- npm test
+- if scripts/validate_tag.sh --check ; then npm install es6-shim && npm install request && npm run gh-publish && scripts/publish_x86.sh ; fi

@@ -1,7 +1,7 @@
 {
   'includes': [ 'common-libicu.gypi' ],
   'target_defaults': {
-    'default_configuration': 'Debug',
+    'default_configuration': 'Release',
     'configurations': {
       'Debug': {
         'variables': {
@@ -69,9 +69,9 @@
             '<(SHARED_INTERMEDIATE_DIR)/icu/source/Makefile'
           ],
           'action': [
-                'python', './cdconfigure.py',
+                './cdconfigure.js',
                 '<(SHARED_INTERMEDIATE_DIR)/icu/source/',
-                'CFLAGS=-fPIC', 'CXXFLAGS=-fPIC', # required on x64
+                #'CFLAGS=-fPIC', 'CXXFLAGS=-fPIC', # required on x64
                 '--enable-static', '--disable-shared',
                 # we can't use --disable-tools since the build process
                 # uses bin/icupkg internally

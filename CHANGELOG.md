@@ -1,6 +1,7 @@
 # node-icu-bidi x.x.x (not yet released)
 * Update to icu-bidi 53.1
 * Fix build issues on OS X
+* Use `node-pre-gyp` for build automation
 
 # node-icu-bidi 0.1.2 (2014-01-10)
 * Add `dir` property to return values with `level` property.
