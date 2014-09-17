@@ -3,7 +3,7 @@
 # Set language to "objective-c" and push to the "macosx" branch with
 # "[publish binary]" in the commit message in order to build Mac OS X
 # binaries
-language: cpp
+language: objective-c
 
 ## don't re-build for tags so that [publish binary] is not re-run
 ## https://github.com/travis-ci/travis-ci/issues/1532
