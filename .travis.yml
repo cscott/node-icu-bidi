@@ -1,4 +1,8 @@
-# borrowed from node-sqlite3
+# Much of this is borrowed from node-sqlite3.
+
+# Set language to "objective-c" and push to the "macosx" branch with
+# "[publish binary]" in the commit message in order to build Mac OS X
+# binaries
 language: cpp
 
 ## don't re-build for tags so that [publish binary] is not re-run
@@ -38,6 +42,10 @@ install:
 # put node-pre-gyp on path
 - export PATH=./node_modules/.bin/:$PATH
 
+before_script:
+# get commit message
+- export COMMIT_MESSAGE=$(git show -s --format=%B $TRAVIS_COMMIT | tr -d '\n')
+
 script:
 - node --version
 - npm --version
@@ -45,3 +53,4 @@ script:
 - node-pre-gyp package testpackage
 - npm test
 - if scripts/validate_tag.sh --check ; then npm install es6-shim && npm install request && npm run gh-publish && scripts/publish_x86.sh ; fi
+- if test "$TRAVIS_BRANCH" == "macosx" -a  "${COMMIT_MESSAGE#*'[publish binary]'}" != "$COMMIT_MESSAGE"; then npm install es6-shim && npm install request && npm run gh-publish ; fi
