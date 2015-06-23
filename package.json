@@ -29,7 +29,7 @@
     "host": "https://github.com",
     "remote_path": "/cscott/node-icu-bidi/releases/download/{version}/"
   },
-  "dependencies"  : {
+  "dependencies": {
     "nan": "~1.8.4",
     "node-pre-gyp": "~0.6.7"
   },
@@ -37,7 +37,7 @@
     "node-pre-gyp"
   ],
   "devDependencies": {
-    "mocha": "~1.21.4",
-    "should": "~4.0.4"
+    "mocha": "~2.2.5",
+    "should": "~7.0.1"
   }
 }
