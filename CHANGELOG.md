@@ -1,4 +1,4 @@
-# node-icu-bidi x.x.x (not yet released)
+# node-icu-bidi 0.1.4 (2015-06-23)
 * Update to icu-bidi 55.1
 * Use `nan` to support node versions > 0.10
 
