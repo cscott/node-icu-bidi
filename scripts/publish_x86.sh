@@ -13,6 +13,7 @@ npm install request
 
 # borrowed from node-sqlite3 scripts/build_against_node.sh
 
+sudo apt-get update
 sudo apt-get -y install gcc-multilib g++-multilib
 # node v0.8 and above provide pre-built 32 bit and 64 bit binaries
 # so here we use the 32 bit ones to also test 32 bit builds

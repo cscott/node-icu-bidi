@@ -54,5 +54,9 @@ script:
 - npm install --build-from-source
 - node-pre-gyp package testpackage
 - npm test
+# Normal case: tagged builds trigger 32-bit and 64-bit x86 builds
 - if scripts/validate_tag.sh --check ; then npm install es6-shim && npm install request && npm run gh-publish && scripts/publish_x86.sh ; fi
+# Workaround to trigger a manual x86 build
+- if test "$TRAVIS_BRANCH" == "x86" -a  "${COMMIT_MESSAGE#*'[publish binary]'}" != "$COMMIT_MESSAGE"; then npm install es6-shim && npm install request && npm run gh-publish && scripts/publish_x86.sh ; fi
+# Trigger a manual macosx build by pushing to macosx branch (see above)
 - if test "$TRAVIS_BRANCH" == "macosx" -a  "${COMMIT_MESSAGE#*'[publish binary]'}" != "$COMMIT_MESSAGE"; then npm install es6-shim && npm install request && npm run gh-publish ; fi
