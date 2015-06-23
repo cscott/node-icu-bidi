@@ -3,7 +3,7 @@
 
 [![Build Status][1]][2] [![dependency status][3]][4] [![dev dependency status][5]][6]
 
-The node `icu-bidi` package binds to the [ICU][] (53.1) library in order to
+The node `icu-bidi` package binds to the [ICU][] (55.1) library in order to
 provide an implementation of the Unicode [BiDi][] algorithm.
 
 # USAGE
