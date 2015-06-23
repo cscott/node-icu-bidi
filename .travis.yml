@@ -16,13 +16,15 @@ env:
    - NODE_VERSION="0.8"
    - NODE_VERSION="0.10"
    - NODE_VERSION="0.11"
+   - NODE_VERSION="0.12"
+   - NODE_VERSION="iojs"
   global:
    - secure: "p/3rptxI8KJGhU1omrUu2WRClXhVwbRoWC3YfjaQr6rDMUMkmARc4tWT1UnL6e7bKAG2vKO9ko1d3meT6rHZL8ma/I5z9tvm3gefxLdIeV1I93JNX3nCLNkCDdIOcHEFibr1R8qsrcLqTaVoLMBhnNxFEvUFLbebD3ArFBy0zxY="
 
-matrix:
-  allow_failures:
-   # v8 API changed in 0.11, needs update
-   - env: NODE_VERSION="0.11"
+#matrix:
+#  allow_failures:
+#   # v8 API changed in 0.11, needs update
+#   - env: NODE_VERSION="0.11"
 
 before_install:
 # check if tag exists and matches package.json

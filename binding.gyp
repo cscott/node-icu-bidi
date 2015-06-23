@@ -6,6 +6,7 @@
   'targets': [
     {
       'target_name': 'icu_bidi',
+      "include_dirs": ["<!(node -e \"require('nan')\")"],
       'conditions': [
         ['libicu != "internal"', {
             'libraries': [ "<!@(icu-config --ldflags)" ],

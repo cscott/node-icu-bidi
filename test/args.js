@@ -36,7 +36,7 @@ describe('Argument handling', function() {
             o.f();
         }).should.throw();
     });
-    it('should allow subtyping', function() {
+    it.skip('should allow subtyping', function() {
         (function() {
             var p = new bidi.Paragraph('xyz');
             var pp = Object.create(p);

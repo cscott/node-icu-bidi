@@ -4,32 +4,37 @@
 
 #include "unicode/ubidi.h"
 
+#include "nan.h"
 #include "macros.h"
 
 using namespace v8;
 
 /* A type-safe improvement on node::SetPrototypeMethod */
-template <typename target_t>
+template <typename target_t, typename callback_t>
 static void bidi_SetPrototypeMethod(target_t target, const char *name,
-                             v8::InvocationCallback callback) {
-  Local<FunctionTemplate> templ = FunctionTemplate::New(
-    callback, Undefined(), Signature::New(target)
+                                    callback_t callback) {
+  NanScope();
+  Local<FunctionTemplate> templ = NanNew<FunctionTemplate>(
+    callback, NanUndefined(), NanNew<Signature>(target)
   );
-  target->PrototypeTemplate()->Set(String::NewSymbol(name), templ);
+  NanSetPrototypeTemplate(target, name, templ);
 }
 
-static Handle<Value> bidi_MakeException(UErrorCode code) {
-  // xxx: stash the error code somewhere in the exception object
-  return Exception::Error(String::New("The bidi algorithm failed"));
+static Local<Value> bidi_MakeError(UErrorCode code) {
+  NanEscapableScope();
+  Local<Value> err = Exception::Error(NanNew("The bidi algorithm failed"));
+  Local<Object> obj = err.As<Object>();
+  obj->Set(NanNew("code"), NanNew<Int32>(code));
+  return NanEscapeScope(err);
 }
 
 static Handle<Value> dir2str(UBiDiDirection dir) {
-  HandleScope scope;
-  return scope.Close(dir == UBIDI_LTR ? String::NewSymbol("ltr") :
-                     dir == UBIDI_RTL ? String::NewSymbol("rtl") :
-                     dir == UBIDI_MIXED ? String::NewSymbol("mixed") :
-                     dir == UBIDI_NEUTRAL ? String::NewSymbol("neutral") :
-                     Undefined() /* should never happen */);
+  NanEscapableScope();
+  return NanEscapeScope(dir == UBIDI_LTR ? NanNew("ltr") :
+                        dir == UBIDI_RTL ? NanNew("rtl") :
+                        dir == UBIDI_MIXED ? NanNew("mixed") :
+                        dir == UBIDI_NEUTRAL ? NanNew("neutral") :
+                        NanNew("<bad dir>" /* should never happen */));
 }
 
 static UBiDiDirection level2dir(UBiDiLevel level) {
@@ -39,7 +44,7 @@ static UBiDiDirection level2dir(UBiDiLevel level) {
 #define CHECK_UBIDI_ERR(obj)                                        \
   do {                                                              \
     if (U_FAILURE((obj)->errorCode)) {                              \
-      return ThrowException(bidi_MakeException((obj)->errorCode));  \
+      return NanThrowError(bidi_MakeError((obj)->errorCode));       \
     }                                                               \
   } while (false)
 
@@ -53,8 +58,7 @@ protected:
                 para(NULL),
                 text(NULL),
                 runs(-1),
-                errorCode(U_ZERO_ERROR),
-                parent(Persistent<Object>())  {
+                errorCode(U_ZERO_ERROR)  {
   }
   ~Paragraph() {
     if (para != NULL) {
@@ -65,32 +69,30 @@ protected:
       delete text;
       text = NULL;
     }
-    // this is parent.Reset() in newer v8
-    parent.Dispose();
-    parent.Clear();
+    NanDisposePersistent(parent);
   }
 
-  static Handle<Value> New(const Arguments& args);
+  static NAN_METHOD(New);
 
-  static Handle<Value> GetDirection(const Arguments &args);
-  static Handle<Value> GetParaLevel(const Arguments &args);
-  static Handle<Value> GetLevelAt(const Arguments &args);
-  static Handle<Value> GetLength(const Arguments &args);
-  static Handle<Value> GetProcessedLength(const Arguments &args);
-  static Handle<Value> GetResultLength(const Arguments &args);
-  static Handle<Value> GetVisualIndex(const Arguments &args);
-  static Handle<Value> GetLogicalIndex(const Arguments &args);
+  static NAN_METHOD(GetDirection);
+  static NAN_METHOD(GetParaLevel);
+  static NAN_METHOD(GetLevelAt);
+  static NAN_METHOD(GetLength);
+  static NAN_METHOD(GetProcessedLength);
+  static NAN_METHOD(GetResultLength);
+  static NAN_METHOD(GetVisualIndex);
+  static NAN_METHOD(GetLogicalIndex);
 
-  static Handle<Value> CountParagraphs(const Arguments &args);
-  static Handle<Value> GetParagraph(const Arguments &args);
-  static Handle<Value> GetParagraphByIndex(const Arguments &args);
+  static NAN_METHOD(CountParagraphs);
+  static NAN_METHOD(GetParagraph);
+  static NAN_METHOD(GetParagraphByIndex);
 
-  static Handle<Value> CountRuns(const Arguments& args);
-  static Handle<Value> GetVisualRun(const Arguments& args);
-  static Handle<Value> GetLogicalRun(const Arguments& args);
+  static NAN_METHOD(CountRuns);
+  static NAN_METHOD(GetVisualRun);
+  static NAN_METHOD(GetLogicalRun);
 
-  static Handle<Value> SetLine(const Arguments& args);
-  static Handle<Value> WriteReordered(const Arguments& args);
+  static NAN_METHOD(SetLine);
+  static NAN_METHOD(WriteReordered);
 
 protected:
   UBiDi *para;
@@ -107,42 +109,41 @@ Persistent<FunctionTemplate> Paragraph::constructor_template;
 
 void Paragraph::Init(Handle<Object> target) {
   const char *CLASS_NAME = "Paragraph";
-  HandleScope scope;
+  NanScope();
 
-  Local<FunctionTemplate> t = FunctionTemplate::New(New);
+  Local<FunctionTemplate> t = NanNew<FunctionTemplate>(New);
 
-  constructor_template = Persistent<FunctionTemplate>::New(t);
-  constructor_template->InstanceTemplate()->SetInternalFieldCount(1);
-  constructor_template->SetClassName(String::NewSymbol(CLASS_NAME));
+  t->InstanceTemplate()->SetInternalFieldCount(1);
+  t->SetClassName(NanNew(CLASS_NAME));
 
-  bidi_SetPrototypeMethod(constructor_template, "countRuns", CountRuns);
-  bidi_SetPrototypeMethod(constructor_template, "getVisualRun", GetVisualRun);
-  bidi_SetPrototypeMethod(constructor_template, "getLogicalRun", GetLogicalRun);
+  bidi_SetPrototypeMethod(t, "countRuns", CountRuns);
+  bidi_SetPrototypeMethod(t, "getVisualRun", GetVisualRun);
+  bidi_SetPrototypeMethod(t, "getLogicalRun", GetLogicalRun);
 
-  bidi_SetPrototypeMethod(constructor_template, "getDirection", GetDirection);
-  bidi_SetPrototypeMethod(constructor_template, "getParaLevel", GetParaLevel);
-  bidi_SetPrototypeMethod(constructor_template, "getLevelAt", GetLevelAt);
-  bidi_SetPrototypeMethod(constructor_template, "getLength", GetLength);
-  bidi_SetPrototypeMethod(constructor_template, "getProcessedLength", GetProcessedLength);
-  bidi_SetPrototypeMethod(constructor_template, "getResultLength", GetResultLength);
+  bidi_SetPrototypeMethod(t, "getDirection", GetDirection);
+  bidi_SetPrototypeMethod(t, "getParaLevel", GetParaLevel);
+  bidi_SetPrototypeMethod(t, "getLevelAt", GetLevelAt);
+  bidi_SetPrototypeMethod(t, "getLength", GetLength);
+  bidi_SetPrototypeMethod(t, "getProcessedLength", GetProcessedLength);
+  bidi_SetPrototypeMethod(t, "getResultLength", GetResultLength);
 
-  bidi_SetPrototypeMethod(constructor_template, "getVisualIndex", GetVisualIndex);
-  bidi_SetPrototypeMethod(constructor_template, "getLogicalIndex", GetLogicalIndex);
+  bidi_SetPrototypeMethod(t, "getVisualIndex", GetVisualIndex);
+  bidi_SetPrototypeMethod(t, "getLogicalIndex", GetLogicalIndex);
 
-  bidi_SetPrototypeMethod(constructor_template, "countParagraphs", CountParagraphs);
-  bidi_SetPrototypeMethod(constructor_template, "getParagraph", GetParagraph);
-  bidi_SetPrototypeMethod(constructor_template, "getParagraphByIndex", GetParagraphByIndex);
+  bidi_SetPrototypeMethod(t, "countParagraphs", CountParagraphs);
+  bidi_SetPrototypeMethod(t, "getParagraph", GetParagraph);
+  bidi_SetPrototypeMethod(t, "getParagraphByIndex", GetParagraphByIndex);
 
-  bidi_SetPrototypeMethod(constructor_template, "setLine", SetLine);
+  bidi_SetPrototypeMethod(t, "setLine", SetLine);
 
-  bidi_SetPrototypeMethod(constructor_template, "writeReordered", WriteReordered);
+  bidi_SetPrototypeMethod(t, "writeReordered", WriteReordered);
 
-  target->Set(String::NewSymbol(CLASS_NAME),
-              constructor_template->GetFunction());
+  NanAssignPersistent(constructor_template, t);
+  target->Set(NanNew(CLASS_NAME), t->GetFunction());
 }
 
-Handle<Value> Paragraph::New(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::New) {
+  NanScope();
   Local<Value> result;
 
   if (!args.IsConstructCall()) {
@@ -150,9 +151,9 @@ Handle<Value> Paragraph::New(const Arguments& args) {
     const int argc = args.Length();
     Local<Value> *argv = new Local<Value>[argc];
     for (int i=0; i<argc; i++) { argv[i] = args[i]; }
-    Handle<Value> result = scope.Close(constructor_template->GetFunction()->NewInstance(argc, argv));
+    Handle<Value> result = NanNew(constructor_template)->GetFunction()->NewInstance(argc, argv);
     delete[] argv;
-    return result;
+    NanReturnValue(result);
   }
   REQUIRE_ARGUMENTS(1);
 
@@ -160,27 +161,27 @@ Handle<Value> Paragraph::New(const Arguments& args) {
     // special back door used to create line objects.
     Paragraph *line = (Paragraph *) Local<External>::Cast(args[0])->Value();
     line->Wrap(args.This());
-    return scope.Close(args.This());
+    NanReturnValue(args.This());
   }
 
   String::Value text(args[0]);
   if (*text == NULL) {
     // conversion failed.  toString() threw an exception?
-    return ThrowException(Exception::TypeError(String::New(
+    return NanThrowTypeError(
         "First argument couldn't be converted to a string"
-    )));
+    );
   }
 
   // an optional options hash for the second argument.
   Handle<Object> options;
   if (args.Length() <= 1) {
-    options = Object::New();
+    options = NanNew<Object>();
   } else {
     options = args[1]->ToObject();
     if (options.IsEmpty() || !args[1]->IsObject()) {
-      return ThrowException(Exception::TypeError(String::New(
+      return NanThrowTypeError(
         "Second argument should be an options hash"
-      )));
+      );
     }
   }
 
@@ -190,12 +191,12 @@ Handle<Value> Paragraph::New(const Arguments& args) {
   para->para = ubidi_openSized(text.length(), 0, &para->errorCode);
   CHECK_UBIDI_ERR(para);
   if (para->para==NULL) {
-    return ThrowException(Exception::Error(String::New("libicu open failed")));
+    return NanThrowError("libicu open failed");
   }
 
   // parse values from the options hash
   Handle<Value> paraLevelObj =
-    options->Get(String::NewSymbol("paraLevel"));
+    options->Get(NanNew("paraLevel"));
   UBiDiLevel paraLevel =
     paraLevelObj->IsNumber() ? paraLevelObj->Int32Value() :
     UBIDI_DEFAULT_LTR;
@@ -206,7 +207,7 @@ Handle<Value> Paragraph::New(const Arguments& args) {
   }
 
   Handle<Value> reorderingModeObj =
-    options->Get(String::NewSymbol("reorderingMode"));
+    options->Get(NanNew("reorderingMode"));
   UBiDiReorderingMode reorderingMode =
     reorderingModeObj->IsNumber() ?
     (UBiDiReorderingMode) reorderingModeObj->Int32Value() :
@@ -216,7 +217,7 @@ Handle<Value> Paragraph::New(const Arguments& args) {
   }
 
   Handle<Value> reorderingOptionsObj =
-    options->Get(String::NewSymbol("reorderingOptions"));
+    options->Get(NanNew("reorderingOptions"));
   int32_t reorderingOptions =
     reorderingOptionsObj->IsNumber() ? reorderingOptionsObj->Int32Value() :
     -1;
@@ -227,21 +228,21 @@ Handle<Value> Paragraph::New(const Arguments& args) {
   }
 
   Handle<Value> inverseObj =
-    options->Get(String::NewSymbol("inverse"));
+    options->Get(NanNew("inverse"));
   if (inverseObj->IsBoolean()) {
     ubidi_setInverse(para->para, inverseObj->BooleanValue());
   }
 
   Handle<Value> reorderParagraphsLTRObj =
-    options->Get(String::NewSymbol("reorderParagraphsLTR"));
+    options->Get(NanNew("reorderParagraphsLTR"));
   if (reorderParagraphsLTRObj->IsBoolean()) {
     ubidi_orderParagraphsLTR(para->para, reorderParagraphsLTRObj->BooleanValue());
   }
 
   Handle<Value> prologueObj =
-    options->Get(String::NewSymbol("prologue"));
+    options->Get(NanNew("prologue"));
   Handle<Value> epilogueObj =
-    options->Get(String::NewSymbol("epilogue"));
+    options->Get(NanNew("epilogue"));
   String::Value prologue(prologueObj);
   String::Value epilogue(epilogueObj);
   int32_t plen = prologueObj->IsString() ? prologue.length() : 0;
@@ -269,16 +270,14 @@ Handle<Value> Paragraph::New(const Arguments& args) {
                 paraLevel, NULL, &para->errorCode);
   CHECK_UBIDI_ERR(para);
 
-  return scope.Close(args.This());
+  NanReturnValue(args.This());
 }
 
-Handle<Value> Paragraph::SetLine(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::SetLine) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   if (!para->parent.IsEmpty()) {
-    return ThrowException(Exception::TypeError(String::New(
-      "This is already a line"
-    )));
+    return NanThrowTypeError("This is already a line");
   }
   REQUIRE_ARGUMENT_NUMBER(0);
   REQUIRE_ARGUMENT_NUMBER(1);
@@ -290,105 +289,105 @@ Handle<Value> Paragraph::SetLine(const Arguments& args) {
   line->para = ubidi_openSized(ubidi_getLength(para->para), 0, &line->errorCode);
   if (U_FAILURE(line->errorCode) || line->para==NULL) {
     delete line;
-    return ThrowException(Exception::Error(String::New("libicu open failed")));
+    return NanThrowError("libicu open failed");
   }
 
   ubidi_setLine(para->para, start, limit, line->para, &line->errorCode);
   if (U_FAILURE(line->errorCode)) {
     delete line;
-    return ThrowException(Exception::Error(String::New("setLine failed")));
+    return NanThrowError("setLine failed");
   }
 
   // okay, now create a js object wrapping this Paragraph
   // indicate to the constructor that we just want to wrap this object
   // by passing it as an External
-  Local<Value> consArgs[1] = { External::New(line) };
-  Local<Object> lineObj = constructor_template->GetFunction()->NewInstance(
+  Local<Value> consArgs[1] = { NanNew<External>(line) };
+  Local<Object> lineObj = NanNew(constructor_template)->GetFunction()->NewInstance(
     1, consArgs
   );
-  line->parent = Persistent<Object>::New(args.Holder());
-  return scope.Close(lineObj);
+  NanAssignPersistent(line->parent, args.Holder());
+  NanReturnValue(lineObj);
 }
 
-Handle<Value> Paragraph::GetParaLevel(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetParaLevel) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  return scope.Close(Integer::New(ubidi_getParaLevel(para->para)));
+  NanReturnValue(NanNew<Integer>(ubidi_getParaLevel(para->para)));
 }
 
-Handle<Value> Paragraph::GetLevelAt(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetLevelAt) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
   int32_t charIndex = args[0]->Int32Value();
-  return scope.Close(Integer::New(ubidi_getLevelAt(para->para, charIndex)));
+  NanReturnValue(NanNew<Integer>(ubidi_getLevelAt(para->para, charIndex)));
 }
 
-Handle<Value> Paragraph::CountParagraphs(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::CountParagraphs) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  return scope.Close(Integer::New(ubidi_countParagraphs(para->para)));
+  NanReturnValue(NanNew<Integer>(ubidi_countParagraphs(para->para)));
 }
 
-Handle<Value> Paragraph::GetDirection(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetDirection) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   UBiDiDirection dir = ubidi_getDirection(para->para);
-  return scope.Close(dir2str(dir));
+  NanReturnValue(dir2str(dir));
 }
 
-Handle<Value> Paragraph::GetLength(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetLength) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  return scope.Close(Integer::New(ubidi_getLength(para->para)));
+  NanReturnValue(NanNew<Integer>(ubidi_getLength(para->para)));
 }
 
-Handle<Value> Paragraph::GetProcessedLength(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetProcessedLength) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  return scope.Close(Integer::New(ubidi_getProcessedLength(para->para)));
+  NanReturnValue(NanNew<Integer>(ubidi_getProcessedLength(para->para)));
 }
 
-Handle<Value> Paragraph::GetResultLength(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetResultLength) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  return scope.Close(Integer::New(ubidi_getResultLength(para->para)));
+  NanReturnValue(NanNew<Integer>(ubidi_getResultLength(para->para)));
 }
 
-Handle<Value> Paragraph::GetVisualIndex(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetVisualIndex) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
   int32_t logicalIndex = args[0]->Int32Value();
   int32_t visualIndex =
     ubidi_getVisualIndex(para->para, logicalIndex, &para->errorCode);
   CHECK_UBIDI_ERR(para);
-  return scope.Close(Integer::New(visualIndex));
+  NanReturnValue(NanNew<Integer>(visualIndex));
 }
 
-Handle<Value> Paragraph::GetLogicalIndex(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetLogicalIndex) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
   int32_t visualIndex = args[0]->Int32Value();
   int32_t logicalIndex =
     ubidi_getLogicalIndex(para->para, visualIndex, &para->errorCode);
   CHECK_UBIDI_ERR(para);
-  return scope.Close(Integer::New(logicalIndex));
+  NanReturnValue(NanNew<Integer>(logicalIndex));
 }
 
-Handle<Value> Paragraph::CountRuns(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::CountRuns) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   if (para->runs < 0) {
     para->runs = ubidi_countRuns(para->para, &para->errorCode);
     CHECK_UBIDI_ERR(para);
   }
-  return scope.Close(Integer::New(para->runs));
+  NanReturnValue(NanNew<Integer>(para->runs));
 }
 
-Handle<Value> Paragraph::GetVisualRun(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetVisualRun) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   if (para->runs < 0) {
     para->runs = ubidi_countRuns(para->para, &para->errorCode);
@@ -397,22 +396,20 @@ Handle<Value> Paragraph::GetVisualRun(const Arguments& args) {
   REQUIRE_ARGUMENT_NUMBER(0);
   int32_t runIndex = args[0]->Int32Value(), logicalStart, length;
   if (!(runIndex >= 0 && runIndex < para->runs)) {
-    return ThrowException(Exception::TypeError(String::New(
-      "Run index out of bounds"
-    )));
+    return NanThrowTypeError("Run index out of bounds");
   }
   UBiDiDirection dir = ubidi_getVisualRun(
     para->para, runIndex, &logicalStart, &length
   );
-  Local<Object> result = Object::New();
-  result->Set(String::NewSymbol("dir"), dir2str(dir));
-  result->Set(String::NewSymbol("logicalStart"), Integer::New(logicalStart));
-  result->Set(String::NewSymbol("length"), Integer::New(length));
-  return scope.Close(result);
+  Local<Object> result = NanNew<Object>();
+  result->Set(NanNew("dir"), dir2str(dir));
+  result->Set(NanNew("logicalStart"), NanNew<Integer>(logicalStart));
+  result->Set(NanNew("length"), NanNew<Integer>(length));
+  NanReturnValue(result);
 }
 
-Handle<Value> Paragraph::GetLogicalRun(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetLogicalRun) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   if (para->runs < 0) {
     para->runs = ubidi_countRuns(para->para, &para->errorCode);
@@ -424,15 +421,15 @@ Handle<Value> Paragraph::GetLogicalRun(const Arguments& args) {
   ubidi_getLogicalRun(
     para->para, logicalPosition, &logicalLimit, &level
   );
-  Local<Object> result = Object::New();
-  result->Set(String::NewSymbol("logicalLimit"), Integer::New(logicalLimit));
-  result->Set(String::NewSymbol("level"), Integer::New(level));
-  result->Set(String::NewSymbol("dir"), dir2str(level2dir(level)));
-  return scope.Close(result);
+  Local<Object> result = NanNew<Object>();
+  result->Set(NanNew("logicalLimit"), NanNew<Integer>(logicalLimit));
+  result->Set(NanNew("level"), NanNew<Integer>(level));
+  result->Set(NanNew("dir"), dir2str(level2dir(level)));
+  NanReturnValue(result);
 }
 
-Handle<Value> Paragraph::GetParagraph(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetParagraph) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
   int32_t charIndex = args[0]->Int32Value(), paraStart, paraLimit;
@@ -442,17 +439,17 @@ Handle<Value> Paragraph::GetParagraph(const Arguments& args) {
   );
   CHECK_UBIDI_ERR(para);
 
-  Local<Object> result = Object::New();
-  result->Set(String::NewSymbol("index"), Integer::New(paraIndex));
-  result->Set(String::NewSymbol("start"), Integer::New(paraStart));
-  result->Set(String::NewSymbol("limit"), Integer::New(paraLimit));
-  result->Set(String::NewSymbol("level"), Integer::New(paraLevel));
-  result->Set(String::NewSymbol("dir"), dir2str(level2dir(paraLevel)));
-  return scope.Close(result);
+  Local<Object> result = NanNew<Object>();
+  result->Set(NanNew("index"), NanNew<Integer>(paraIndex));
+  result->Set(NanNew("start"), NanNew<Integer>(paraStart));
+  result->Set(NanNew("limit"), NanNew<Integer>(paraLimit));
+  result->Set(NanNew("level"), NanNew<Integer>(paraLevel));
+  result->Set(NanNew("dir"), dir2str(level2dir(paraLevel)));
+  NanReturnValue(result);
 }
 
-Handle<Value> Paragraph::GetParagraphByIndex(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::GetParagraphByIndex) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
   int32_t paraIndex = args[0]->Int32Value(), paraStart, paraLimit;
@@ -462,17 +459,17 @@ Handle<Value> Paragraph::GetParagraphByIndex(const Arguments& args) {
   );
   CHECK_UBIDI_ERR(para);
 
-  Local<Object> result = Object::New();
-  result->Set(String::NewSymbol("index"), Integer::New(paraIndex));
-  result->Set(String::NewSymbol("start"), Integer::New(paraStart));
-  result->Set(String::NewSymbol("limit"), Integer::New(paraLimit));
-  result->Set(String::NewSymbol("level"), Integer::New(paraLevel));
-  result->Set(String::NewSymbol("dir"), dir2str(level2dir(paraLevel)));
-  return scope.Close(result);
+  Local<Object> result = NanNew<Object>();
+  result->Set(NanNew("index"), NanNew<Integer>(paraIndex));
+  result->Set(NanNew("start"), NanNew<Integer>(paraStart));
+  result->Set(NanNew("limit"), NanNew<Integer>(paraLimit));
+  result->Set(NanNew("level"), NanNew<Integer>(paraLevel));
+  result->Set(NanNew("dir"), dir2str(level2dir(paraLevel)));
+  NanReturnValue(result);
 }
 
-Handle<Value> Paragraph::WriteReordered(const Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(Paragraph::WriteReordered) {
+  NanScope();
   Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
   uint16_t options = 0;
   if (args.Length() > 0) {
@@ -494,17 +491,15 @@ Handle<Value> Paragraph::WriteReordered(const Arguments& args) {
   );
   CHECK_UBIDI_ERR(para);
   if (resultSize > destSize) {
-    return ThrowException(Exception::Error(String::New(
-        "Allocation error (this should never happen)"
-    )));
+    return NanThrowError("Allocation error (this should never happen)");
   }
-  return scope.Close(String::New(dest, resultSize));
+  NanReturnValue(NanNew<String>(dest, resultSize));
 }
 
 
 // Tell node about our module!
-void RegisterModule(Handle<Object> exports) {
-  HandleScope scope;
+void RegisterModule(v8::Handle<Object> exports) {
+  NanScope();
 
   Paragraph::Init(exports);
 
@@ -517,9 +512,9 @@ void RegisterModule(Handle<Object> exports) {
   DEFINE_CONSTANT_INTEGER(exports, UBIDI_MAP_NOWHERE, MAP_NOWHERE);
 
   // Reordered.<constant>: option bits for writeReordered
-  Handle<Object> re = Object::New();
-  exports->Set(String::NewSymbol("Reordered"), re,
-               static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+  Handle<Object> re = NanNew<Object>();
+  exports->ForceSet(NanNew("Reordered"), re,
+                    static_cast<PropertyAttribute>(ReadOnly | DontDelete));
   DEFINE_CONSTANT_INTEGER(re, UBIDI_KEEP_BASE_COMBINING, KEEP_BASE_COMBINING);
   DEFINE_CONSTANT_INTEGER(re, UBIDI_DO_MIRRORING, DO_MIRRORING);
   DEFINE_CONSTANT_INTEGER(re, UBIDI_INSERT_LRM_FOR_NUMERIC, INSERT_LRM_FOR_NUMERIC);
@@ -527,9 +522,9 @@ void RegisterModule(Handle<Object> exports) {
   DEFINE_CONSTANT_INTEGER(re, UBIDI_OUTPUT_REVERSE, OUTPUT_REVERSE);
 
   // ReorderingMode.<constant>
-  Handle<Object> rm = Object::New();
-  exports->Set(String::NewSymbol("ReorderingMode"), rm,
-               static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+  Handle<Object> rm = NanNew<Object>();
+  exports->ForceSet(NanNew("ReorderingMode"), rm,
+                    static_cast<PropertyAttribute>(ReadOnly | DontDelete));
   DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_DEFAULT, DEFAULT);
   DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_NUMBERS_SPECIAL, NUMBERS_SPECIAL);
   DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_GROUP_NUMBERS_WITH_R, GROUP_NUMBERS_WITH_R);
@@ -539,9 +534,9 @@ void RegisterModule(Handle<Object> exports) {
   DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL, INVERSE_FOR_NUMBERS_SPECIAL);
   //DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_COUNT, COUNT); //number of enums
 
-  Handle<Object> ro = Object::New();
-  exports->Set(String::NewSymbol("ReorderingOption"), ro,
-               static_cast<PropertyAttribute>(ReadOnly | DontDelete));
+  Handle<Object> ro = NanNew<Object>();
+  exports->ForceSet(NanNew("ReorderingOption"), ro,
+                    static_cast<PropertyAttribute>(ReadOnly | DontDelete));
   DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_DEFAULT, DEFAULT);
   DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_INSERT_MARKS, INSERT_MARKS);
   DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_REMOVE_CONTROLS, REMOVE_CONTROLS);
