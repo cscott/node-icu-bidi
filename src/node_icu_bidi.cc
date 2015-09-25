@@ -13,28 +13,28 @@ using namespace v8;
 template <typename target_t, typename callback_t>
 static void bidi_SetPrototypeMethod(target_t target, const char *name,
                                     callback_t callback) {
-  NanScope();
-  Local<FunctionTemplate> templ = NanNew<FunctionTemplate>(
-    callback, NanUndefined(), NanNew<Signature>(target)
+  Nan::HandleScope scope;
+  Local<FunctionTemplate> templ = Nan::New<FunctionTemplate>(
+    callback, Nan::Undefined(), Nan::New<Signature>(target)
   );
-  NanSetPrototypeTemplate(target, name, templ);
+  Nan::SetPrototypeTemplate(target, name, templ);
 }
 
 static Local<Value> bidi_MakeError(UErrorCode code) {
-  NanEscapableScope();
-  Local<Value> err = Exception::Error(NanNew("The bidi algorithm failed"));
-  Local<Object> obj = err.As<Object>();
-  obj->Set(NanNew("code"), NanNew<Int32>(code));
-  return NanEscapeScope(err);
+  Nan::EscapableHandleScope scope;
+  Local<Value> err = Nan::Error("The bidi algorithm failed");
+  Local<Object> obj = Nan::To<Object>(err).ToLocalChecked();
+  Nan::Set(obj, NEW_STR("code"), Nan::New(code));
+  return scope.Escape(err);
 }
 
-static Handle<Value> dir2str(UBiDiDirection dir) {
-  NanEscapableScope();
-  return NanEscapeScope(dir == UBIDI_LTR ? NanNew("ltr") :
-                        dir == UBIDI_RTL ? NanNew("rtl") :
-                        dir == UBIDI_MIXED ? NanNew("mixed") :
-                        dir == UBIDI_NEUTRAL ? NanNew("neutral") :
-                        NanNew("<bad dir>" /* should never happen */));
+static Local<Value> dir2str(UBiDiDirection dir) {
+  Nan::EscapableHandleScope scope;
+  return scope.Escape(dir == UBIDI_LTR ? NEW_STR("ltr") :
+                        dir == UBIDI_RTL ? NEW_STR("rtl") :
+                        dir == UBIDI_MIXED ? NEW_STR("mixed") :
+                        dir == UBIDI_NEUTRAL ? NEW_STR("neutral") :
+                        NEW_STR("<bad dir>" /* should never happen */));
 }
 
 static UBiDiDirection level2dir(UBiDiLevel level) {
@@ -44,17 +44,17 @@ static UBiDiDirection level2dir(UBiDiLevel level) {
 #define CHECK_UBIDI_ERR(obj)                                        \
   do {                                                              \
     if (U_FAILURE((obj)->errorCode)) {                              \
-      return NanThrowError(bidi_MakeError((obj)->errorCode));       \
+      return Nan::ThrowError(bidi_MakeError((obj)->errorCode));     \
     }                                                               \
   } while (false)
 
 // declarations
-class Paragraph : public node::ObjectWrap {
+class Paragraph : public Nan::ObjectWrap {
 public:
-  static Persistent<FunctionTemplate> constructor_template;
-  static void Init(Handle<Object> target);
+  static Nan::Persistent<FunctionTemplate> constructor_template;
+  static void Init(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target);
 protected:
-  Paragraph() : node::ObjectWrap(),
+  Paragraph() : Nan::ObjectWrap(),
                 para(NULL),
                 text(NULL),
                 runs(-1),
@@ -69,7 +69,7 @@ protected:
       delete text;
       text = NULL;
     }
-    NanDisposePersistent(parent);
+    parent.Reset();
   }
 
   static NAN_METHOD(New);
@@ -101,20 +101,20 @@ protected:
   UErrorCode errorCode;
   // keep a pointer to the parent paragraph to ensure that lines are
   // gc'ed/destroyed before the paragraph they belong to.
-  Persistent<Object> parent;
+  Nan::Persistent<Object> parent;
 };
 
 // implementation
-Persistent<FunctionTemplate> Paragraph::constructor_template;
+Nan::Persistent<FunctionTemplate> Paragraph::constructor_template;
 
-void Paragraph::Init(Handle<Object> target) {
+void Paragraph::Init(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
   const char *CLASS_NAME = "Paragraph";
-  NanScope();
+  Nan::HandleScope scope;
 
-  Local<FunctionTemplate> t = NanNew<FunctionTemplate>(New);
+  Local<FunctionTemplate> t = Nan::New<FunctionTemplate>(New);
 
   t->InstanceTemplate()->SetInternalFieldCount(1);
-  t->SetClassName(NanNew(CLASS_NAME));
+  t->SetClassName(NEW_STR(CLASS_NAME));
 
   bidi_SetPrototypeMethod(t, "countRuns", CountRuns);
   bidi_SetPrototypeMethod(t, "getVisualRun", GetVisualRun);
@@ -138,126 +138,125 @@ void Paragraph::Init(Handle<Object> target) {
 
   bidi_SetPrototypeMethod(t, "writeReordered", WriteReordered);
 
-  NanAssignPersistent(constructor_template, t);
-  target->Set(NanNew(CLASS_NAME), t->GetFunction());
+  constructor_template.Reset(t);
+  Nan::Set(target, NEW_STR(CLASS_NAME), Nan::GetFunction(t).ToLocalChecked());
 }
 
 NAN_METHOD(Paragraph::New) {
-  NanScope();
   Local<Value> result;
 
-  if (!args.IsConstructCall()) {
+  if (!info.IsConstructCall()) {
     // Invoked as plain function, turn into construct call
-    const int argc = args.Length();
+    const int argc = info.Length();
     Local<Value> *argv = new Local<Value>[argc];
-    for (int i=0; i<argc; i++) { argv[i] = args[i]; }
-    Handle<Value> result = NanNew(constructor_template)->GetFunction()->NewInstance(argc, argv);
+    for (int i=0; i<argc; i++) { argv[i] = info[i]; }
+    Nan::TryCatch try_catch;
+    Nan::MaybeLocal<Object> result = Nan::NewInstance(
+      Nan::GetFunction(Nan::New<FunctionTemplate>(constructor_template))
+      .ToLocalChecked(), argc, argv);
     delete[] argv;
-    NanReturnValue(result);
+    if (try_catch.HasCaught()) {
+      try_catch.ReThrow();
+    } else {
+      info.GetReturnValue().Set(result.ToLocalChecked());
+    }
+    return;
   }
   REQUIRE_ARGUMENTS(1);
 
-  if (args[0]->IsExternal()) {
+  if (info[0]->IsExternal()) {
     // special back door used to create line objects.
-    Paragraph *line = (Paragraph *) Local<External>::Cast(args[0])->Value();
-    line->Wrap(args.This());
-    NanReturnValue(args.This());
+    Paragraph *line = (Paragraph *) Local<External>::Cast(info[0])->Value();
+    line->Wrap(info.This());
+    info.GetReturnValue().Set(info.This());
+    return;
   }
 
-  String::Value text(args[0]);
-  if (*text == NULL) {
+  Nan::MaybeLocal<String> maybeText = Nan::To<String>(info[0]);
+  if (maybeText.IsEmpty()) {
     // conversion failed.  toString() threw an exception?
-    return NanThrowTypeError(
+    return Nan::ThrowTypeError(
         "First argument couldn't be converted to a string"
     );
   }
+  Local<String> text = maybeText.ToLocalChecked();
+  int32_t tlen = text->Length();
 
   // an optional options hash for the second argument.
-  Handle<Object> options;
-  if (args.Length() <= 1) {
-    options = NanNew<Object>();
+  Local<Object> options;
+  if (info.Length() <= 1) {
+    options = Nan::New<Object>();
   } else {
-    options = args[1]->ToObject();
-    if (options.IsEmpty() || !args[1]->IsObject()) {
-      return NanThrowTypeError(
+    Nan::MaybeLocal<Object> maybeOptions = Nan::To<Object>(info[1]);
+    if (maybeOptions.IsEmpty()) {
+      return Nan::ThrowTypeError(
         "Second argument should be an options hash"
       );
     }
+    options = maybeOptions.ToLocalChecked();
   }
 
   Paragraph *para = new Paragraph();
-  para->Wrap(args.This());
+  para->Wrap(info.This());
 
-  para->para = ubidi_openSized(text.length(), 0, &para->errorCode);
+  para->para = ubidi_openSized(tlen, 0, &para->errorCode);
   CHECK_UBIDI_ERR(para);
   if (para->para==NULL) {
-    return NanThrowError("libicu open failed");
+    return Nan::ThrowError("libicu open failed");
   }
 
   // parse values from the options hash
-  Handle<Value> paraLevelObj =
-    options->Get(NanNew("paraLevel"));
-  UBiDiLevel paraLevel =
-    paraLevelObj->IsNumber() ? paraLevelObj->Int32Value() :
-    UBIDI_DEFAULT_LTR;
+  UBiDiLevel paraLevel = (UBiDiLevel)
+    CAST_INT(GET_PROPERTY(options, "paraLevel"), UBIDI_DEFAULT_LTR);
   if (!(paraLevel <= UBIDI_MAX_EXPLICIT_LEVEL ||
         paraLevel == UBIDI_DEFAULT_LTR ||
         paraLevel == UBIDI_DEFAULT_RTL)) {
     paraLevel = UBIDI_DEFAULT_LTR;
   }
 
-  Handle<Value> reorderingModeObj =
-    options->Get(NanNew("reorderingMode"));
-  UBiDiReorderingMode reorderingMode =
-    reorderingModeObj->IsNumber() ?
-    (UBiDiReorderingMode) reorderingModeObj->Int32Value() :
-    UBIDI_REORDER_COUNT;
+  UBiDiReorderingMode reorderingMode = (UBiDiReorderingMode)
+    CAST_INT(GET_PROPERTY(options, "reorderingMode"), UBIDI_REORDER_COUNT);
   if (reorderingMode >= 0 && reorderingMode < UBIDI_REORDER_COUNT) {
     ubidi_setReorderingMode(para->para, reorderingMode);
   }
 
-  Handle<Value> reorderingOptionsObj =
-    options->Get(NanNew("reorderingOptions"));
   int32_t reorderingOptions =
-    reorderingOptionsObj->IsNumber() ? reorderingOptionsObj->Int32Value() :
-    -1;
+    CAST_INT(GET_PROPERTY(options, "reorderingOptions"), -1);
   if (reorderingOptions >= 0 && reorderingOptions <=
       (UBIDI_OPTION_INSERT_MARKS | UBIDI_OPTION_REMOVE_CONTROLS |
        UBIDI_OPTION_STREAMING)) {
     ubidi_setReorderingOptions(para->para, (uint32_t) reorderingOptions);
   }
 
-  Handle<Value> inverseObj =
-    options->Get(NanNew("inverse"));
-  if (inverseObj->IsBoolean()) {
-    ubidi_setInverse(para->para, inverseObj->BooleanValue());
+  Local<Value> inverse =
+    GET_PROPERTY(options, "inverse");
+  if (inverse->IsBoolean()) {
+    ubidi_setInverse(para->para, CAST_BOOL(inverse, false));
   }
 
-  Handle<Value> reorderParagraphsLTRObj =
-    options->Get(NanNew("reorderParagraphsLTR"));
-  if (reorderParagraphsLTRObj->IsBoolean()) {
-    ubidi_orderParagraphsLTR(para->para, reorderParagraphsLTRObj->BooleanValue());
+  Local<Value> reorderParagraphsLTR =
+    GET_PROPERTY(options, "reorderParagraphsLTR");
+  if (reorderParagraphsLTR->IsBoolean()) {
+    ubidi_orderParagraphsLTR(para->para, CAST_BOOL(reorderParagraphsLTR, false));
   }
 
-  Handle<Value> prologueObj =
-    options->Get(NanNew("prologue"));
-  Handle<Value> epilogueObj =
-    options->Get(NanNew("epilogue"));
-  String::Value prologue(prologueObj);
-  String::Value epilogue(epilogueObj);
-  int32_t plen = prologueObj->IsString() ? prologue.length() : 0;
-  int32_t elen = epilogueObj->IsString() ? epilogue.length() : 0;
+  Local<String> prologue =
+    CAST_STRING(GET_PROPERTY(options, "prologue"), Nan::EmptyString());
+  Local<String> epilogue =
+    CAST_STRING(GET_PROPERTY(options, "epilogue"), Nan::EmptyString());
+  int32_t plen = prologue->Length();
+  int32_t elen = epilogue->Length();
 
   // Copy main, prologue, and epilogue text and keep it alive as long
   // as we're alive.
-  para->text = new UChar[plen + text.length() + elen];
-  std::memcpy(para->text, *prologue, plen * sizeof(UChar));
-  std::memcpy(para->text + plen, *text, text.length() * sizeof(UChar));
-  std::memcpy(para->text + plen + text.length(), *epilogue, elen * sizeof(UChar));
+  para->text = new UChar[plen + tlen + elen];
+  prologue->Write(para->text, 0, plen);
+  text->Write(para->text + plen, 0, tlen);
+  epilogue->Write(para->text + plen + tlen, 0, elen);
   if (plen!=0 || elen!=0) {
     ubidi_setContext(
       para->para, para->text, plen,
-      para->text + plen + text.length(), elen,
+      para->text + plen + tlen, elen,
       &para->errorCode
     );
     CHECK_UBIDI_ERR(para);
@@ -266,215 +265,199 @@ NAN_METHOD(Paragraph::New) {
   // XXX parse options.embeddingLevels and construct an appropriate array of
   //     UBiDiLevel to pass to setPara
 
-  ubidi_setPara(para->para, para->text + plen, text.length(),
+  ubidi_setPara(para->para, para->text + plen, tlen,
                 paraLevel, NULL, &para->errorCode);
   CHECK_UBIDI_ERR(para);
 
-  NanReturnValue(args.This());
+  info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(Paragraph::SetLine) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   if (!para->parent.IsEmpty()) {
-    return NanThrowTypeError("This is already a line");
+    return Nan::ThrowTypeError("This is already a line");
   }
   REQUIRE_ARGUMENT_NUMBER(0);
   REQUIRE_ARGUMENT_NUMBER(1);
-  int32_t start = args[0]->Int32Value();
-  int32_t limit = args[1]->Int32Value();
+  int32_t start = Nan::To<int32_t>(info[0]).FromJust();
+  int32_t limit = Nan::To<int32_t>(info[1]).FromJust();
 
   // Create para object.
   Paragraph *line = new Paragraph();
   line->para = ubidi_openSized(ubidi_getLength(para->para), 0, &line->errorCode);
   if (U_FAILURE(line->errorCode) || line->para==NULL) {
     delete line;
-    return NanThrowError("libicu open failed");
+    return Nan::ThrowError("libicu open failed");
   }
 
   ubidi_setLine(para->para, start, limit, line->para, &line->errorCode);
   if (U_FAILURE(line->errorCode)) {
     delete line;
-    return NanThrowError("setLine failed");
+    return Nan::ThrowError("setLine failed");
   }
 
   // okay, now create a js object wrapping this Paragraph
   // indicate to the constructor that we just want to wrap this object
   // by passing it as an External
-  Local<Value> consArgs[1] = { NanNew<External>(line) };
-  Local<Object> lineObj = NanNew(constructor_template)->GetFunction()->NewInstance(
-    1, consArgs
-  );
-  NanAssignPersistent(line->parent, args.Holder());
-  NanReturnValue(lineObj);
+  Local<Value> consArgs[1] = { Nan::New<External>(line) };
+  Local<Object> lineObj = Nan::NewInstance(
+    Nan::GetFunction(Nan::New(constructor_template)).ToLocalChecked(),
+    1, consArgs).ToLocalChecked();
+  line->parent.Reset(info.Holder());
+  info.GetReturnValue().Set(lineObj);
 }
 
 NAN_METHOD(Paragraph::GetParaLevel) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  NanReturnValue(NanNew<Integer>(ubidi_getParaLevel(para->para)));
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
+  info.GetReturnValue().Set(Nan::New(ubidi_getParaLevel(para->para)));
 }
 
 NAN_METHOD(Paragraph::GetLevelAt) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
-  int32_t charIndex = args[0]->Int32Value();
-  NanReturnValue(NanNew<Integer>(ubidi_getLevelAt(para->para, charIndex)));
+  int32_t charIndex = Nan::To<int32_t>(info[0]).FromJust();
+  info.GetReturnValue().Set(Nan::New(ubidi_getLevelAt(para->para, charIndex)));
 }
 
 NAN_METHOD(Paragraph::CountParagraphs) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  NanReturnValue(NanNew<Integer>(ubidi_countParagraphs(para->para)));
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
+  info.GetReturnValue().Set(Nan::New(ubidi_countParagraphs(para->para)));
 }
 
 NAN_METHOD(Paragraph::GetDirection) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   UBiDiDirection dir = ubidi_getDirection(para->para);
-  NanReturnValue(dir2str(dir));
+  info.GetReturnValue().Set(dir2str(dir));
 }
 
 NAN_METHOD(Paragraph::GetLength) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  NanReturnValue(NanNew<Integer>(ubidi_getLength(para->para)));
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
+  info.GetReturnValue().Set(Nan::New(ubidi_getLength(para->para)));
 }
 
 NAN_METHOD(Paragraph::GetProcessedLength) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  NanReturnValue(NanNew<Integer>(ubidi_getProcessedLength(para->para)));
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
+  info.GetReturnValue().Set(Nan::New(ubidi_getProcessedLength(para->para)));
 }
 
 NAN_METHOD(Paragraph::GetResultLength) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
-  NanReturnValue(NanNew<Integer>(ubidi_getResultLength(para->para)));
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
+  info.GetReturnValue().Set(Nan::New(ubidi_getResultLength(para->para)));
 }
 
 NAN_METHOD(Paragraph::GetVisualIndex) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
-  int32_t logicalIndex = args[0]->Int32Value();
+  int32_t logicalIndex = Nan::To<int32_t>(info[0]).FromJust();
   int32_t visualIndex =
     ubidi_getVisualIndex(para->para, logicalIndex, &para->errorCode);
   CHECK_UBIDI_ERR(para);
-  NanReturnValue(NanNew<Integer>(visualIndex));
+  info.GetReturnValue().Set(Nan::New(visualIndex));
 }
 
 NAN_METHOD(Paragraph::GetLogicalIndex) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
-  int32_t visualIndex = args[0]->Int32Value();
+  int32_t visualIndex = Nan::To<int32_t>(info[0]).FromJust();
   int32_t logicalIndex =
     ubidi_getLogicalIndex(para->para, visualIndex, &para->errorCode);
   CHECK_UBIDI_ERR(para);
-  NanReturnValue(NanNew<Integer>(logicalIndex));
+  info.GetReturnValue().Set(Nan::New(logicalIndex));
 }
 
 NAN_METHOD(Paragraph::CountRuns) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   if (para->runs < 0) {
     para->runs = ubidi_countRuns(para->para, &para->errorCode);
     CHECK_UBIDI_ERR(para);
   }
-  NanReturnValue(NanNew<Integer>(para->runs));
+  info.GetReturnValue().Set(Nan::New(para->runs));
 }
 
 NAN_METHOD(Paragraph::GetVisualRun) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   if (para->runs < 0) {
     para->runs = ubidi_countRuns(para->para, &para->errorCode);
     CHECK_UBIDI_ERR(para);
   }
   REQUIRE_ARGUMENT_NUMBER(0);
-  int32_t runIndex = args[0]->Int32Value(), logicalStart, length;
+  int32_t runIndex = Nan::To<int32_t>(info[0]).FromJust(), logicalStart, length;
   if (!(runIndex >= 0 && runIndex < para->runs)) {
-    return NanThrowTypeError("Run index out of bounds");
+    return Nan::ThrowTypeError("Run index out of bounds");
   }
   UBiDiDirection dir = ubidi_getVisualRun(
     para->para, runIndex, &logicalStart, &length
   );
-  Local<Object> result = NanNew<Object>();
-  result->Set(NanNew("dir"), dir2str(dir));
-  result->Set(NanNew("logicalStart"), NanNew<Integer>(logicalStart));
-  result->Set(NanNew("length"), NanNew<Integer>(length));
-  NanReturnValue(result);
+  Local<Object> result = Nan::New<Object>();
+  Nan::Set(result, NEW_STR("dir"), dir2str(dir));
+  Nan::Set(result, NEW_STR("logicalStart"), Nan::New(logicalStart));
+  Nan::Set(result, NEW_STR("length"), Nan::New(length));
+  info.GetReturnValue().Set(result);
 }
 
 NAN_METHOD(Paragraph::GetLogicalRun) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   if (para->runs < 0) {
     para->runs = ubidi_countRuns(para->para, &para->errorCode);
     CHECK_UBIDI_ERR(para);
   }
   REQUIRE_ARGUMENT_NUMBER(0);
-  int32_t logicalPosition = args[0]->Int32Value(), logicalLimit;
+  int32_t logicalPosition = Nan::To<int32_t>(info[0]).FromJust(), logicalLimit;
   UBiDiLevel level;
   ubidi_getLogicalRun(
     para->para, logicalPosition, &logicalLimit, &level
   );
-  Local<Object> result = NanNew<Object>();
-  result->Set(NanNew("logicalLimit"), NanNew<Integer>(logicalLimit));
-  result->Set(NanNew("level"), NanNew<Integer>(level));
-  result->Set(NanNew("dir"), dir2str(level2dir(level)));
-  NanReturnValue(result);
+  Local<Object> result = Nan::New<Object>();
+  Nan::Set(result, NEW_STR("logicalLimit"), Nan::New(logicalLimit));
+  Nan::Set(result, NEW_STR("level"), Nan::New(level));
+  Nan::Set(result, NEW_STR("dir"), dir2str(level2dir(level)));
+  info.GetReturnValue().Set(result);
 }
 
 NAN_METHOD(Paragraph::GetParagraph) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
-  int32_t charIndex = args[0]->Int32Value(), paraStart, paraLimit;
+  int32_t charIndex = Nan::To<int32_t>(info[0]).FromJust(), paraStart, paraLimit;
   UBiDiLevel paraLevel;
   int32_t paraIndex = ubidi_getParagraph(
     para->para, charIndex, &paraStart, &paraLimit, &paraLevel, &para->errorCode
   );
   CHECK_UBIDI_ERR(para);
 
-  Local<Object> result = NanNew<Object>();
-  result->Set(NanNew("index"), NanNew<Integer>(paraIndex));
-  result->Set(NanNew("start"), NanNew<Integer>(paraStart));
-  result->Set(NanNew("limit"), NanNew<Integer>(paraLimit));
-  result->Set(NanNew("level"), NanNew<Integer>(paraLevel));
-  result->Set(NanNew("dir"), dir2str(level2dir(paraLevel)));
-  NanReturnValue(result);
+  Local<Object> result = Nan::New<Object>();
+  Nan::Set(result, NEW_STR("index"), Nan::New(paraIndex));
+  Nan::Set(result, NEW_STR("start"), Nan::New(paraStart));
+  Nan::Set(result, NEW_STR("limit"), Nan::New(paraLimit));
+  Nan::Set(result, NEW_STR("level"), Nan::New(paraLevel));
+  Nan::Set(result, NEW_STR("dir"), dir2str(level2dir(paraLevel)));
+  info.GetReturnValue().Set(result);
 }
 
 NAN_METHOD(Paragraph::GetParagraphByIndex) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   REQUIRE_ARGUMENT_NUMBER(0);
-  int32_t paraIndex = args[0]->Int32Value(), paraStart, paraLimit;
+  int32_t paraIndex = Nan::To<int32_t>(info[0]).FromJust(), paraStart, paraLimit;
   UBiDiLevel paraLevel;
   ubidi_getParagraphByIndex(
     para->para, paraIndex, &paraStart, &paraLimit, &paraLevel, &para->errorCode
   );
   CHECK_UBIDI_ERR(para);
 
-  Local<Object> result = NanNew<Object>();
-  result->Set(NanNew("index"), NanNew<Integer>(paraIndex));
-  result->Set(NanNew("start"), NanNew<Integer>(paraStart));
-  result->Set(NanNew("limit"), NanNew<Integer>(paraLimit));
-  result->Set(NanNew("level"), NanNew<Integer>(paraLevel));
-  result->Set(NanNew("dir"), dir2str(level2dir(paraLevel)));
-  NanReturnValue(result);
+  Local<Object> result = Nan::New<Object>();
+  Nan::Set(result, NEW_STR("index"), Nan::New(paraIndex));
+  Nan::Set(result, NEW_STR("start"), Nan::New(paraStart));
+  Nan::Set(result, NEW_STR("limit"), Nan::New(paraLimit));
+  Nan::Set(result, NEW_STR("level"), Nan::New(paraLevel));
+  Nan::Set(result, NEW_STR("dir"), dir2str(level2dir(paraLevel)));
+  info.GetReturnValue().Set(result);
 }
 
 NAN_METHOD(Paragraph::WriteReordered) {
-  NanScope();
-  Paragraph *para = node::ObjectWrap::Unwrap<Paragraph>(args.Holder());
+  Paragraph *para = Nan::ObjectWrap::Unwrap<Paragraph>(info.Holder());
   uint16_t options = 0;
-  if (args.Length() > 0) {
+  if (info.Length() > 0) {
     REQUIRE_ARGUMENT_NUMBER(0);
-    options = (uint16_t) args[0]->Uint32Value();
+    options = (uint16_t) Nan::To<uint32_t>(info[0]).FromJust();
   }
   // Allocate a buffer to hold the result.
   int32_t destSize = ubidi_getProcessedLength(para->para);
@@ -491,29 +474,29 @@ NAN_METHOD(Paragraph::WriteReordered) {
   );
   CHECK_UBIDI_ERR(para);
   if (resultSize > destSize) {
-    return NanThrowError("Allocation error (this should never happen)");
+    return Nan::ThrowError("Allocation error (this should never happen)");
   }
-  NanReturnValue(NanNew<String>(dest, resultSize));
+  info.GetReturnValue().Set(Nan::New<String>(dest, resultSize).ToLocalChecked());
 }
 
 
 // Tell node about our module!
-void RegisterModule(v8::Handle<Object> exports) {
-  NanScope();
+NAN_MODULE_INIT(RegisterModule) {
+  Nan::HandleScope scope;
 
-  Paragraph::Init(exports);
+  Paragraph::Init(target);
 
-  DEFINE_CONSTANT_INTEGER(exports, UBIDI_LTR, LTR);
-  DEFINE_CONSTANT_INTEGER(exports, UBIDI_RTL, RTL);
-  DEFINE_CONSTANT_INTEGER(exports, UBIDI_DEFAULT_LTR, DEFAULT_LTR);
-  DEFINE_CONSTANT_INTEGER(exports, UBIDI_DEFAULT_RTL, DEFAULT_RTL);
-  DEFINE_CONSTANT_INTEGER(exports, UBIDI_MAX_EXPLICIT_LEVEL, MAX_EXPLICIT_LEVEL);
-  DEFINE_CONSTANT_INTEGER(exports, UBIDI_LEVEL_OVERRIDE, LEVEL_OVERRIDE);
-  DEFINE_CONSTANT_INTEGER(exports, UBIDI_MAP_NOWHERE, MAP_NOWHERE);
+  DEFINE_CONSTANT_INTEGER(target, UBIDI_LTR, LTR);
+  DEFINE_CONSTANT_INTEGER(target, UBIDI_RTL, RTL);
+  DEFINE_CONSTANT_INTEGER(target, UBIDI_DEFAULT_LTR, DEFAULT_LTR);
+  DEFINE_CONSTANT_INTEGER(target, UBIDI_DEFAULT_RTL, DEFAULT_RTL);
+  DEFINE_CONSTANT_INTEGER(target, UBIDI_MAX_EXPLICIT_LEVEL, MAX_EXPLICIT_LEVEL);
+  DEFINE_CONSTANT_INTEGER(target, UBIDI_LEVEL_OVERRIDE, LEVEL_OVERRIDE);
+  DEFINE_CONSTANT_INTEGER(target, UBIDI_MAP_NOWHERE, MAP_NOWHERE);
 
   // Reordered.<constant>: option bits for writeReordered
-  Handle<Object> re = NanNew<Object>();
-  exports->ForceSet(NanNew("Reordered"), re,
+  Local<Object> re = Nan::New<Object>();
+  Nan::ForceSet(target, NEW_STR("Reordered"), re,
                     static_cast<PropertyAttribute>(ReadOnly | DontDelete));
   DEFINE_CONSTANT_INTEGER(re, UBIDI_KEEP_BASE_COMBINING, KEEP_BASE_COMBINING);
   DEFINE_CONSTANT_INTEGER(re, UBIDI_DO_MIRRORING, DO_MIRRORING);
@@ -522,8 +505,8 @@ void RegisterModule(v8::Handle<Object> exports) {
   DEFINE_CONSTANT_INTEGER(re, UBIDI_OUTPUT_REVERSE, OUTPUT_REVERSE);
 
   // ReorderingMode.<constant>
-  Handle<Object> rm = NanNew<Object>();
-  exports->ForceSet(NanNew("ReorderingMode"), rm,
+  Local<Object> rm = Nan::New<Object>();
+  Nan::ForceSet(target, NEW_STR("ReorderingMode"), rm,
                     static_cast<PropertyAttribute>(ReadOnly | DontDelete));
   DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_DEFAULT, DEFAULT);
   DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_NUMBERS_SPECIAL, NUMBERS_SPECIAL);
@@ -534,8 +517,8 @@ void RegisterModule(v8::Handle<Object> exports) {
   DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_INVERSE_FOR_NUMBERS_SPECIAL, INVERSE_FOR_NUMBERS_SPECIAL);
   //DEFINE_CONSTANT_INTEGER(rm, UBIDI_REORDER_COUNT, COUNT); //number of enums
 
-  Handle<Object> ro = NanNew<Object>();
-  exports->ForceSet(NanNew("ReorderingOption"), ro,
+  Local<Object> ro = Nan::New<Object>();
+  Nan::ForceSet(target, NEW_STR("ReorderingOption"), ro,
                     static_cast<PropertyAttribute>(ReadOnly | DontDelete));
   DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_DEFAULT, DEFAULT);
   DEFINE_CONSTANT_INTEGER(ro, UBIDI_OPTION_INSERT_MARKS, INSERT_MARKS);

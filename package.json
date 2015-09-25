@@ -30,14 +30,14 @@
     "remote_path": "/cscott/node-icu-bidi/releases/download/{version}/"
   },
   "dependencies": {
-    "nan": "~1.8.4",
-    "node-pre-gyp": "~0.6.7"
+    "nan": "~2.0.9",
+    "node-pre-gyp": "~0.6.11"
   },
   "bundleDependencies": [
     "node-pre-gyp"
   ],
   "devDependencies": {
-    "mocha": "~2.2.5",
-    "should": "~7.0.1"
+    "mocha": "~2.3.3",
+    "should": "~7.1.0"
   }
 }
