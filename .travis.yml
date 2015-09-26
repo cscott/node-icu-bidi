@@ -1,9 +1,18 @@
 # Much of this is borrowed from node-sqlite3.
+sudo: false
 
-# Set language to "objective-c" and push to the "macosx" branch with
-# "[publish binary]" in the commit message in order to build Mac OS X
-# binaries
 language: cpp
+
+git:
+  depth: 10
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    - llvm-toolchain-precise-3.5
+    packages:
+    - clang-3.5
 
 ## don't re-build for tags so that [publish binary] is not re-run
 ## https://github.com/travis-ci/travis-ci/issues/1532
@@ -11,16 +20,82 @@ language: cpp
 #  except:
 #    - /^[0-9]+[.][0-9]+[.][0-9]+/
 
+
+matrix:
+  include:
+     # Linux
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="4.1.0"
+       addons:
+         apt:
+            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
+            packages: [ 'clang-3.5']
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="4.0.0"
+       addons:
+         apt:
+            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
+            packages: [ 'clang-3.5']
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="iojs-3.1.0"
+       addons:
+         apt:
+            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
+            packages: [ 'clang-3.5']
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="iojs-2.4.0"
+       addons:
+         apt:
+            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
+            packages: [ 'clang-3.5']
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="iojs-1.8.4"
+       addons:
+         apt:
+            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
+            packages: [ 'clang-3.5']
+     - os: linux
+       env: NODE_VERSION="0.12.7"
+     - os: linux
+       env: NODE_VERSION="0.10.40"
+     - os: linux
+       env: NODE_VERSION="0.8.28"
+     # test building against external libicu
+     - os: linux
+       env: NODE_VERSION="0.10.40" EXTERNAL_LIBICU=true PUBLISHABLE=false
+       addons:
+         apt:
+            sources: [ 'libicu-dev:i386' ]
+            packages: [ 'libicu-dev']
+     # OS X
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="4.0.0" # node abi 46
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="iojs-3.1.0" # node abi 46
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="iojs-2.4.0" # node abi 44
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="iojs-1.8.4" # node abi 43
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="0.12.7" # node abi 14
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="0.10.40" # node abi 11
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="0.8.28"
+
 env:
-  matrix:
-   - NODE_VERSION="0.8"
-   - NODE_VERSION="0.10.40"
-   - NODE_VERSION="0.12.7"
-   - NODE_VERSION="iojs-1.8.4"
-   - NODE_VERSION="iojs-2.4.0"
-   - NODE_VERSION="iojs-3.1.0"
-   - NODE_VERSION="4.0.0"
-   - NODE_VERSION="4.1.0"
   global:
    - secure: "p/3rptxI8KJGhU1omrUu2WRClXhVwbRoWC3YfjaQr6rDMUMkmARc4tWT1UnL6e7bKAG2vKO9ko1d3meT6rHZL8ma/I5z9tvm3gefxLdIeV1I93JNX3nCLNkCDdIOcHEFibr1R8qsrcLqTaVoLMBhnNxFEvUFLbebD3ArFBy0zxY="
 
@@ -30,6 +105,11 @@ env:
 #   - env: NODE_VERSION="0.11"
 
 before_install:
+- export PUBLISHABLE=${PUBLISHABLE:-true}
+#- if [[ $(uname -s) == 'Linux' -a false ]]; then
+#     export CXX="clang++-3.5";
+#     export CC="clang-3.5";
+#  fi;
 # check if tag exists and matches package.json
 - scripts/validate_tag.sh
 - echo $NODE_VERSION
@@ -54,7 +134,7 @@ before_script:
 script:
 - node --version
 - npm --version
-- npm install --build-from-source
+- if test -z "$EXTERNAL_LIBICU" ; then npm install --build-from-source ; else npm install --build-from-source --libicu=external ; fi
 - node-pre-gyp package testpackage
 - npm test
 # Normal case: tagged builds trigger 32-bit and 64-bit x86 builds
