@@ -1,3 +1,5 @@
+# node-icu-bidi x.x.x (not yet released)
+
 # node-icu-bidi 0.1.5 (2015-09-26)
 * Update to `nan` 2.0.9 to support node versions 3.x and 4.x.
 
