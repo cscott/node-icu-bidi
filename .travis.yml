@@ -13,6 +13,8 @@ addons:
     - llvm-toolchain-precise-3.5
     packages:
     - clang-3.5
+    - gcc-multilib
+    - g++-multilib
 
 ## don't re-build for tags so that [publish binary] is not re-run
 ## https://github.com/travis-ci/travis-ci/issues/1532
@@ -27,44 +29,28 @@ matrix:
      - os: linux
        compiler: clang
        env: NODE_VERSION="4.1.0"
-       addons:
-         apt:
-            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
-            packages: [ 'clang-3.5']
      - os: linux
        compiler: clang
        env: NODE_VERSION="4.0.0"
-       addons:
-         apt:
-            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
-            packages: [ 'clang-3.5']
      - os: linux
        compiler: clang
        env: NODE_VERSION="iojs-3.1.0"
-       addons:
-         apt:
-            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
-            packages: [ 'clang-3.5']
      - os: linux
        compiler: clang
-       env: NODE_VERSION="iojs-2.4.0"
-       addons:
-         apt:
-            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
-            packages: [ 'clang-3.5']
+       env: NODE_VERSION="iojs-2.4.0" PUBLISHABLE=false
+     - os: linux
+       env: NODE_VERSION="iojs-2.4.0" BUILD_X86=true
      - os: linux
        compiler: clang
-       env: NODE_VERSION="iojs-1.8.4"
-       addons:
-         apt:
-            sources: [ 'ubuntu-toolchain-r-test','llvm-toolchain-precise-3.5', 'gcc-multilib', 'g++-multilib' ]
-            packages: [ 'clang-3.5']
+       env: NODE_VERSION="iojs-1.8.4" PUBLISHABLE=false
      - os: linux
-       env: NODE_VERSION="0.12.7"
+       env: NODE_VERSION="iojs-1.8.4" BUILD_X86=true
      - os: linux
-       env: NODE_VERSION="0.10.40"
+       env: NODE_VERSION="0.12.7" BUILD_X86=true
      - os: linux
-       env: NODE_VERSION="0.8.28"
+       env: NODE_VERSION="0.10.40" BUILD_X86=true
+     - os: linux
+       env: NODE_VERSION="0.8.28" BUILD_X86=true
      # test building against external libicu
      - os: linux
        env: NODE_VERSION="0.10.40" EXTERNAL_LIBICU=true PUBLISHABLE=false
@@ -117,7 +103,7 @@ before_install:
 - source ~/.nvm/nvm.sh
 - nvm install $NODE_VERSION
 - nvm use $NODE_VERSION
-#- npm update -g npm
+- if test "$NODE_VERSION" = "0.8.28" ; then npm install -g npm@1.4.28 ; fi
 #- npm config set spin=false
 #- npm config set loglevel=http
 - node --version
@@ -137,9 +123,9 @@ script:
 - if test -z "$EXTERNAL_LIBICU" ; then npm install --build-from-source ; else npm install --build-from-source --libicu=external ; fi
 - node-pre-gyp package testpackage
 - npm test
+- export PUBLISH=false
 # Normal case: tagged builds trigger 32-bit and 64-bit x86 builds
-- if scripts/validate_tag.sh --check ; then npm install es6-shim && npm install request && npm run gh-publish && scripts/publish_x86.sh ; fi
+- if scripts/validate_tag.sh --check ; then PUBLISH=true; fi
 # Workaround to trigger a manual x86 build
-- if test "$TRAVIS_BRANCH" == "x86" -a  "${COMMIT_MESSAGE#*'[publish binary]'}" != "$COMMIT_MESSAGE"; then npm install es6-shim && npm install request && npm run gh-publish && scripts/publish_x86.sh ; fi
-# Trigger a manual macosx build by pushing to macosx branch (see above)
-- if test "$TRAVIS_BRANCH" == "macosx" -a  "${COMMIT_MESSAGE#*'[publish binary]'}" != "$COMMIT_MESSAGE"; then npm install es6-shim && npm install request && npm run gh-publish ; fi
+- if test "$TRAVIS_BRANCH" == "x86" -a  "${COMMIT_MESSAGE#*'[publish binary]'}" != "$COMMIT_MESSAGE"; then PUBLISH=true; fi
+- if test "$PUBLISH,$PUBLISHABLE" = "true,true"; then npm install core-js@1.1.4 && npm install request@2.64.0 && npm run gh-publish && if test -n "$BUILD_X86"; then scripts/publish_x86.sh ; fi ; fi

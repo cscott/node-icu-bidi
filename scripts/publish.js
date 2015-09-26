@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Use the github API in order to upload release binaries. */
 "use strict";
-require('es6-shim');
+require('core-js');
 var child_process = require('child_process');
 var fs = require('fs');
 var path = require('path');
@@ -21,10 +21,10 @@ var merge = function(baseo, newo) {
   if (newo) {
     Object.keys(newo).forEach(function(k) {
       var v = newo[k];
-      if (typeof(v)==='object') {
-	baseo[k] = merge(baseo[k] || Object.create(null), v);
+      if (typeof(v)==='object' && !Buffer.isBuffer(v)) {
+        baseo[k] = merge(baseo[k] || Object.create(null), v);
       } else {
-	baseo[k] = v;
+        baseo[k] = v;
       }
     });
   }
@@ -36,12 +36,23 @@ var api = function(options, not_json) {
     options = merge({
       url: GITHUB_API + '/repos/' + OWNER + '/' + REPO + '/releases',
       headers: {
-	'User-Agent': 'cscott: node-pre-gyp uploader for '+OWNER+'/'+REPO,
-	Authorization: 'token ' + TOKEN
+        'User-Agent': 'cscott: node-pre-gyp uploader for '+OWNER+'/'+REPO,
+        Authorization: 'token ' + TOKEN
       }
     }, options);
     request(options, function(error, response, body) {
       if (error) { return reject(error); }
+      if (!(response.statusCode >= 200 && response.statusCode <= 299)) {
+        var msg = 'ERROR ' + response.statusCode+': ' + response.statusMessage;
+        try {
+          body = JSON.parse(body);
+          if (body.message) {
+            msg += ': ' + body.message;
+          }
+        } catch (e) { /* ignore */ }
+        msg += ' (' + options.url + ')';
+        return reject(msg);
+      }
       if (!not_json) { body = JSON.parse(body); }
       resolve({ resp: response, body: body});
     });
@@ -86,7 +97,7 @@ var deleteAsset = function(asset) {
 
 var uploadAsset = function(reveal, release) {
   return api({
-    url: release.upload_url.replace('{?name}', ''),
+    url: release.upload_url.replace(/\{\?[^\}]*\}$/, ''),
     qs: { name: reveal.package_name },
     method: 'POST',
     headers: {
@@ -127,7 +138,7 @@ var publish = function() {
 };
 
 publish().then(function(asset) {
-  console.log(asset.name, 'uploaded successfully to');
+  console.log(asset.name + ' uploaded successfully to');
   console.log(asset.browser_download_url);
 }, function(e) {
   setTimeout(function() { throw e; }, 0);
