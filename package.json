@@ -1,7 +1,7 @@
 {
   "name": "icu-bidi",
   "description": "Bindings to the ICU (55) Unicode BiDi algorithm",
-  "version": "0.1.4-git",
+  "version": "0.1.5",
   "homepage": "http://github.com/cscott/node-icu-bidi",
   "author": "C. Scott Ananian <cscott@cscott.net>",
   "main": "lib/index",
