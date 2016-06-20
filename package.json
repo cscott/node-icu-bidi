@@ -37,7 +37,7 @@
     "node-pre-gyp"
   ],
   "devDependencies": {
-    "mocha": "~2.3.3",
-    "should": "~7.1.0"
+    "mocha": "~2.5.3",
+    "should": "~9.0.2"
   }
 }
