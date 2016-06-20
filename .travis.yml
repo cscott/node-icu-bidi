@@ -25,11 +25,16 @@ matrix:
   include:
      # Linux
      - os: linux
-       compiler: clang
-       env: NODE_VERSION="6.2.0" # node abi 48
+       env: NODE_VERSION="node" PUBLISHABLE=false # latest
      - os: linux
        compiler: clang
-       env: NODE_VERSION="4.4.4" # node abi 46
+       env: NODE_VERSION="6.2.2" # node abi 48
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="5.11.1" # node abi 47
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="4.4.5" # node abi 46
      - os: linux
        compiler: clang
        env: NODE_VERSION="4.0.0" PUBLISHABLE=false
@@ -65,10 +70,13 @@ matrix:
      # OS X
      - os: osx
        compiler: clang
-       env: NODE_VERSION="6.2.0" # node abi 48
+       env: NODE_VERSION="6.2.2" # node abi 48
      - os: osx
        compiler: clang
-       env: NODE_VERSION="4.4.4" # node abi 46
+       env: NODE_VERSION="5.11.1" # node abi 47
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="4.4.5" # node abi 46
      - os: osx
        compiler: clang
        env: NODE_VERSION="iojs-3.3.1" # node abi 45
