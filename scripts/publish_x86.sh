@@ -23,7 +23,7 @@ npm install request@2.64.0
 NVER=`node -v`
 # enable 32 bit node
 if [[ ${NODE_VERSION:0:4} == 'iojs' ]]; then
-    wget https://iojs.org/download/release/${NVER}/iojs-${NVER}-${platform}-x86.tar.gz
+    wget --no-check-certificate https://iojs.org/download/release/${NVER}/iojs-${NVER}-${platform}-x86.tar.gz
     tar xf iojs-${NVER}-${platform}-x86.tar.gz
     # enable 32 bit iojs
     export PATH=$(pwd)/iojs-${NVER}-${platform}-x86/bin:$(pwd)/iojs-${NVER}-${platform}-ia32/bin:$PATH

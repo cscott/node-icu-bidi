@@ -13,6 +13,7 @@ addons:
     packages:
     - gcc-5-multilib
     - g++-5-multilib
+    - libc6-dev:i386
 
 ## don't re-build for tags so that [publish binary] is not re-run
 ## https://github.com/travis-ci/travis-ci/issues/1532
@@ -33,8 +34,7 @@ matrix:
        compiler: clang
        env: NODE_VERSION="5.11.1" # node abi 47
      - os: linux
-       compiler: clang
-       env: NODE_VERSION="4.4.5" # node abi 46
+       env: NODE_VERSION="4.4.5" BUILD_X86=true # node abi 46
      - os: linux
        compiler: clang
        env: NODE_VERSION="4.0.0" PUBLISHABLE=false
