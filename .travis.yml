@@ -28,7 +28,10 @@ matrix:
      # Linux
      - os: linux
        compiler: clang
-       env: NODE_VERSION="4.1.2" # node abi 46
+       env: NODE_VERSION="6.2.0" # node abi 48
+     - os: linux
+       compiler: clang
+       env: NODE_VERSION="4.4.4" # node abi 46
      - os: linux
        compiler: clang
        env: NODE_VERSION="4.0.0" PUBLISHABLE=false
@@ -64,7 +67,10 @@ matrix:
      # OS X
      - os: osx
        compiler: clang
-       env: NODE_VERSION="4.1.2" # node abi 46
+       env: NODE_VERSION="6.2.0" # node abi 48
+     - os: osx
+       compiler: clang
+       env: NODE_VERSION="4.4.4" # node abi 46
      - os: osx
        compiler: clang
        env: NODE_VERSION="iojs-3.3.1" # node abi 45
